@@ -32,3 +32,5 @@ src/routeTree.gen.ts
 base44/.app.jsonc
 
 .output/
+src/components/auth_backup/
+src/lib/error-capture.serverBackup.txt

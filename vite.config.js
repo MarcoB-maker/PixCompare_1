@@ -1,10 +1,10 @@
 
 import { readFileSync } from "node:fs";
-import base44 from "@base44/vite-plugin";
 import { nitro } from "nitro/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { fileURLToPath, URL } from "node:url";
 
 const NOT_PREBUNDLED = new Set([
   "react",
@@ -25,6 +25,11 @@ const PREBUNDLE = Object.keys(dependencies).filter(
 );
 
 export default defineConfig({
+   resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   optimizeDeps: { include: PREBUNDLE },
   environments: {
     ssr: {
@@ -38,12 +43,6 @@ export default defineConfig({
     },
   },
   plugins: [
-    base44({
-      hmrNotifier: true,
-      navigationNotifier: true,
-      analyticsTracker: true,
-      visualEditAgent: true,
-    }),
     tanstackStart({ srcDirectory: "src" }),
     nitro(),
     react(),
