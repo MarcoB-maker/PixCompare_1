@@ -10,7 +10,7 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
   const [exif, setExif] = useState({});
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
-  const [hdr, setHdr] = useState(true);
+  const [hdr, setHdr] = useState(false);
 
   const views = useRef({ a: IDENTITY, b: IDENTITY });
   const baselines = useRef({ a: IDENTITY, b: IDENTITY });
