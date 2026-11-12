@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 8% 4%;
+    --foreground: 40 12% 94%;
+    --card: 240 6% 7%;
+    --card-foreground: 40 12% 94%;
+    --popover: 240 6% 7%;
+    --popover-foreground: 40 12% 94%;
+    --primary: 74 88% 62%;
+    --primary-foreground: 240 10% 6%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 40 12% 94%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 56%;
+    --accent: 240 5% 14%;
+    --accent-foreground: 40 12% 94%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 16%;
+    --input: 240 5% 16%;
+    --ring: 74 88% 62%;
+    --chart-1: 74 88% 62%;
+    --chart-2: 174 60% 52%;
+    --chart-3: 43 90% 60%;
+    --chart-4: 280 60% 62%;
+    --chart-5: 12 80% 62%;
+    --radius: 1rem;
+    --font-heading: "Inter Tight", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-body: "Inter Tight", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sidebar-background: 240 6% 6%;
+    --sidebar-foreground: 40 8% 90%;
+    --sidebar-primary: 74 88% 62%;
+    --sidebar-primary-foreground: 240 10% 6%;
+    --sidebar-accent: 240 5% 12%;
+    --sidebar-accent-foreground: 40 8% 90%;
+    --sidebar-border: 240 5% 16%;
+    --sidebar-ring: 74 88% 62%;
+  }
+
+  .dark {
+    --background: 240 8% 4%;
+    --foreground: 40 12% 94%;
+    --card: 240 6% 7%;
+    --card-foreground: 40 12% 94%;
+    --popover: 240 6% 7%;
+    --popover-foreground: 40 12% 94%;
+    --primary: 74 88% 62%;
+    --primary-foreground: 240 10% 6%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 40 12% 94%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 56%;
+    --accent: 240 5% 14%;
+    --accent-foreground: 40 12% 94%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 16%;
+    --input: 240 5% 16%;
+    --ring: 74 88% 62%;
+    --chart-1: 74 88% 62%;
+    --chart-2: 174 60% 52%;
+    --chart-3: 43 90% 60%;
+    --chart-4: 280 60% 62%;
+    --chart-5: 12 80% 62%;
+    --sidebar-background: 240 6% 6%;
+    --sidebar-foreground: 40 8% 90%;
+    --sidebar-primary: 74 88% 62%;
+    --sidebar-primary-foreground: 240 10% 6%;
+    --sidebar-accent: 240 5% 12%;
+    --sidebar-accent-foreground: 40 8% 90%;
+    --sidebar-border: 240 5% 16%;
+    --sidebar-ring: 74 88% 62%;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .pixelated {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: pixelated;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
