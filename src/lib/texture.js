@@ -72,9 +72,10 @@ export async function decodeTexture(file, { hdr = false } = {}) {
   if (hdr) {
     try {
       return await hdrTexture(file);
-    } catch {
-      /* UHDR non supportato: si prosegue in SDR */
-    }
+    } catch (error) {
+  console.error("Errore UHDR:", error);
+  alert("Errore UHDR: " + (error?.message || String(error)));
+}
   }
   return sdrTexture(file);
 }
