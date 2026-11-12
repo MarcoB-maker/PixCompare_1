@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import ComparePane from "./ComparePane";
 import PaneMenu from "./PaneMenu";
-import HdrToggle from "./HdrToggle";
+
 import { readExif } from "@/lib/exif";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
@@ -10,7 +10,7 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
   const [exif, setExif] = useState({});
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
-  const [hdr, setHdr] = useState(false);
+  const hdr = false;
 
   const views = useRef({ a: IDENTITY, b: IDENTITY });
   const baselines = useRef({ a: IDENTITY, b: IDENTITY });
@@ -68,7 +68,7 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
           <span className={synced ? "text-primary" : ""}>sync</span> · confronto
         </p>
         <div className="flex items-center gap-1">
-          <HdrToggle hdr={hdr} onToggle={setHdr} />
+          
           <PaneMenu
             synced={synced}
             onSyncedChange={toggleSync}
