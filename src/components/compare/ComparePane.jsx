@@ -72,7 +72,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         el.style.width = `${texture.width}px`;
         el.style.height = `${texture.height}px`;
         el.style.transformOrigin = "center center";
-        el.style.willChange = "auto";
+        el.style.willChange = "transform";
 
         host.style.width = `${texture.width}px`;
         host.style.height = `${texture.height}px`;

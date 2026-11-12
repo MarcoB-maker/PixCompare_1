@@ -45,7 +45,6 @@ async function hdrTexture(file) {
       desiredDynamicRange: "full",
     });
     await decoder.tracks.ready;
-    await decoder.completed;
     const { image } = await decoder.decode();
     const canvas = await drawToCanvas(image, image.displayWidth, image.displayHeight);
     if (image.close) image.close();
