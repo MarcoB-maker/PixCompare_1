@@ -38,6 +38,10 @@ async function drawToCanvas(source, width, height) {
 }
 
 async function hdrTexture(file) {
+  alert(
+  "Formato: " + file.type +
+  "\nDimensione: " + file.size + " byte"
+);
   if (typeof window !== "undefined" && "ImageDecoder" in window) {
     const decoder = new ImageDecoder({
       data: file.stream(),
