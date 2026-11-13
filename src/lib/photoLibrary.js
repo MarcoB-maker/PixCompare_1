@@ -28,6 +28,14 @@ export function selectPhoto(slot, asset) {
   commit({ ...state, selection: { ...state.selection, [slot]: asset } });
 }
 
+// Scambia le foto selezionate senza toccare i file originali.
+// Anche la schermata iniziale si aggiorna immediatamente.
+export function swapSelectedPhotos() {
+  const { a, b } = state.selection;
+  if (!a || !b) return;
+  commit({ ...state, selection: { a: b, b: a } });
+}
+
 async function makeThumb(file) {
   try {
     const bitmap = await createImageBitmap(file);

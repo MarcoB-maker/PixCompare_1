@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowDownUp, ArrowLeft } from "lucide-react";
 import ComparePane from "./ComparePane";
 import PaneMenu from "./PaneMenu";
 import HdrToggle from "./HdrToggle";
 import { readExif } from "@/lib/exif";
+import { swapSelectedPhotos } from "@/lib/photoLibrary";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
 export default function CompareScreen({ photoA, photoB, onBack }) {
+  // Le due istanze restano associate alle foto originali: "Inverti" sposta
+  // i riquadri con CSS, evitando nuove decodifiche SDR/UHDR e mantenendo lo zoom.
+  const initialPhotos = useRef({ photoA, photoB });
+  const sourceA = initialPhotos.current.photoA;
+  const sourceB = initialPhotos.current.photoB;
+  const [reversed, setReversed] = useState(false);
   const [exif, setExif] = useState({});
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
@@ -23,13 +30,13 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([readExif(photoA.file), readExif(photoB.file)]).then(([a, b]) => {
+    Promise.all([readExif(sourceA.file), readExif(sourceB.file)]).then(([a, b]) => {
       if (alive) setExif({ a, b });
     });
     return () => {
       alive = false;
     };
-  }, [photoA, photoB]);
+  }, [sourceA, sourceB]);
 
   // A pane changed its own transform: while synced, the same delta is applied
   // on top of the other pane's own baseline, so both offsets are preserved.
@@ -55,6 +62,14 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
     if (value) baselines.current = { a: views.current.a, b: views.current.b };
   };
 
+  const invertPhotos = () => {
+    // Aggiorna anche la selezione: tornando alla schermata iniziale
+    // si vede lo stesso ordine scelto durante il confronto.
+    swapSelectedPhotos();
+    // Sposta le istanze esistenti, conservando texture, zoom e posizione.
+    setReversed((value) => !value);
+  };
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-black text-foreground">
       <header className="flex h-12 shrink-0 items-center justify-between gap-1 px-1.5">
@@ -67,6 +82,16 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={invertPhotos}
+            aria-label="Inverti le fotografie A e B"
+            title="Inverti le fotografie A e B"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95"
+          >
+            <ArrowDownUp className="h-3.5 w-3.5" />
+            Inverti
+          </button>
           <button
             type="button"
             onClick={() => toggleSync(!synced)}
@@ -92,11 +117,11 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1" style={{ order: reversed ? 2 : 0 }}>
           <ComparePane
-            badge="A"
-            name={photoA.name}
-            file={photoA.file}
+            badge={reversed ? "B" : "A"}
+            name={sourceA.name}
+            file={sourceA.file}
             exif={exif.a}
             apiRef={paneA}
             onChange={(next) => handleChange("a", next)}
@@ -106,12 +131,12 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
             hdr={hdr}
           />
         </div>
-        <div className="h-px w-full shrink-0 bg-white/30" />
-        <div className="min-h-0 flex-1">
+        <div className="h-px w-full shrink-0 bg-white/30" style={{ order: 1 }} />
+        <div className="min-h-0 flex-1" style={{ order: reversed ? 0 : 2 }}>
           <ComparePane
-            badge="B"
-            name={photoB.name}
-            file={photoB.file}
+            badge={reversed ? "A" : "B"}
+            name={sourceB.name}
+            file={sourceB.file}
             exif={exif.b}
             apiRef={paneB}
             onChange={(next) => handleChange("b", next)}

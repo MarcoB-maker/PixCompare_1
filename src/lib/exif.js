@@ -6,6 +6,18 @@ const TAG_ISO = 0x8827;
 const TAG_ISO_ALT = 0x8833;
 const TAG_EXPOSURE = 0x829a;
 
+// Associa alcuni codici EXIF verificati ai nomi commerciali.
+// La lettura e la conversione sono interamente locali, senza chiamate online.
+// Se un codice non e' presente, mostriamo quello originale.
+const DEVICE_MODELS = Object.freeze({
+  "2412DPC0AG": "POCO X7 Pro",
+});
+
+function getDeviceModelName(code) {
+  if (!code) return null;
+  return DEVICE_MODELS[String(code).trim().toUpperCase()] || null;
+}
+
 function parseTiff(view, start) {
   if (start + 8 > view.byteLength) return null;
   const byteOrder = view.getUint16(start, false);
@@ -137,7 +149,15 @@ export async function readExif(file) {
     const software = parsed.software || null;
     const model = parsed.model || null;
     if (!exposure && !iso && frameCount == null && !gcamVersion && !software && !model) return null;
-    return { exposure, iso, frameCount, gcamVersion, software, model };
+    return {
+      exposure,
+      iso,
+      frameCount,
+      gcamVersion,
+      software,
+      model,
+      modelName: getDeviceModelName(model),
+    };
   } catch {
     return null;
   }

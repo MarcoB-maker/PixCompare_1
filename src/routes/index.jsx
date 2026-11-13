@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
-import { usePhotoLibrary } from "@/lib/photoLibrary";
+import { ArrowDownUp, ArrowRight } from "lucide-react";
+import { swapSelectedPhotos, usePhotoLibrary } from "@/lib/photoLibrary";
 import BrandMark from "@/components/home/BrandMark";
 import PhotoSlot from "@/components/home/PhotoSlot";
 import PhotoPicker from "@/components/home/PhotoPicker";
@@ -68,15 +68,28 @@ function HomePage() {
       </main>
 
       <footer className="relative z-10 mx-auto w-full max-w-xl shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={() => navigate({ to: "/compare" })}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30"
-        >
-          Confronta
-          <ArrowRight className="h-4 w-4" />
-        </button>
+        <div className="flex w-full gap-2">
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={swapSelectedPhotos}
+            aria-label="Inverti le fotografie A e B"
+            title="Inverti le fotografie A e B"
+            className="inline-flex h-12 min-w-0 flex-[2] items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-2 text-[14px] font-semibold text-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ArrowDownUp className="h-4 w-4 shrink-0" />
+            Inverti
+          </button>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => navigate({ to: "/compare" })}
+            className="inline-flex h-12 min-w-0 flex-[3] items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-[15px] font-semibold text-primary-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30"
+          >
+            Confronta
+            <ArrowRight className="h-4 w-4 shrink-0" />
+          </button>
+        </div>
       </footer>
 
       {pickSlot && <PhotoPicker slot={pickSlot} onClose={() => setPickSlot(null)} />}

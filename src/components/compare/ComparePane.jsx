@@ -389,8 +389,8 @@ export default function ComparePane({
               <p className="truncate" title={exif?.software || undefined}>
                 {exif === undefined ? "…" : exif?.software || "Software n/d"}
               </p>
-              <p className="truncate" title={exif?.model || undefined}>
-                {exif === undefined ? "…" : exif?.model || "Modello n/d"}
+              <p className="truncate" title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
+                {exif === undefined ? "…" : exif?.modelName || exif?.model || "Modello n/d"}
               </p>
             </div>
           )}
