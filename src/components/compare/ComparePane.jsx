@@ -18,7 +18,7 @@ function formatFileSize(bytes) {
 }
 
 export default function ComparePane({
-  badge, name, file, exif, onChange, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
+  badge, name, file, exif, onChange, onSingleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
 }) {
   const containerRef = useRef(null);
   const hostRef = useRef(null);
@@ -30,6 +30,7 @@ export default function ComparePane({
   const viewRef = useRef(IDENTITY);
   const pointers = useRef(new Map());
   const gestureRef = useRef(null);
+  const tapRef = useRef(null);
   const pinchFrameRef = useRef(null);
   const pendingPinchRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -133,20 +134,36 @@ export default function ComparePane({
     };
   }, [file, hdr, applyView]);
 
-  // Keep the box size and the transform in sync with layout changes (rotation, split resize).
+  // Quando il pannello passa da metà schermo a SOLO (o viceversa),
+  // conserva il centro della fotografia e impedisce margini fuori immagine.
+  const refreshBounds = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const nextBox = { w: el.clientWidth, h: el.clientHeight };
+    const previousBox = boxRef.current;
+    const nat = naturalRef.current;
+    let nextView = viewRef.current;
+    if (nat && nextBox.w && nextBox.h && previousBox.w && previousBox.h) {
+      const oldFit = Math.min(previousBox.w / nat.w, previousBox.h / nat.h);
+      const newFit = Math.min(nextBox.w / nat.w, nextBox.h / nat.h);
+      if (oldFit > 0 && Number.isFinite(newFit)) {
+        const ratio = newFit / oldFit;
+        nextView = { ...nextView, x: nextView.x * ratio, y: nextView.y * ratio };
+      }
+    }
+    boxRef.current = nextBox;
+    applyView(clampView(nextView));
+  }, [applyView, clampView]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
-    const measure = () => {
-      boxRef.current = { w: el.clientWidth, h: el.clientHeight };
-      applyView(viewRef.current);
-    };
-    measure();
+    refreshBounds();
     if (typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(refreshBounds);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [applyView]);
+  }, [refreshBounds]);
 
   // Exposed to the parent so it can push a transform onto this pane without a re-render.
   useEffect(() => {
@@ -155,11 +172,12 @@ export default function ComparePane({
       apply: applyView,
       clamp: clampView,
       get: () => viewRef.current,
+      refresh: refreshBounds,
     };
     return () => {
       apiRef.current = null;
     };
-  }, [apiRef, applyView, clampView]);
+  }, [apiRef, applyView, clampView, refreshBounds]);
 
   const push = useCallback(
     (next) => {
@@ -244,6 +262,18 @@ export default function ComparePane({
   const handlePointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     flushPendingPinch();
+    // Un solo tocco breve cambia A/B soltanto in SOLO. Non deve essere
+    // confuso con pan o pinch, anche quando il pan è bloccato dai margini.
+    if (onSingleTap && pointers.current.size === 0) {
+      tapRef.current = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        time: performance.now(),
+      };
+    } else {
+      tapRef.current = null;
+    }
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -255,6 +285,10 @@ export default function ComparePane({
 
   const handlePointerMove = (event) => {
     if (!pointers.current.has(event.pointerId)) return;
+    if (tapRef.current?.id === event.pointerId &&
+        Math.hypot(event.clientX - tapRef.current.x, event.clientY - tapRef.current.y) > 10) {
+      tapRef.current = null;
+    }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const current = gestureRef.current;
     if (!current) return;
@@ -289,9 +323,16 @@ export default function ComparePane({
 
   const handlePointerUp = (event) => {
     flushPendingPinch();
+    const tap = tapRef.current;
+    const singleTap = event.type === "pointerup" && onSingleTap && tap &&
+      tap.id === event.pointerId && pointers.current.size === 1 &&
+      performance.now() - tap.time < 350 &&
+      Math.hypot(event.clientX - tap.x, event.clientY - tap.y) <= 10;
+    tapRef.current = null;
     pointers.current.delete(event.pointerId);
     if (pointers.current.size === 0) gestureRef.current = null;
     else beginGesture();
+    if (singleTap) onSingleTap();
   };
 
   useEffect(() => {
