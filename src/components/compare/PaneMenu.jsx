@@ -27,7 +27,14 @@ function ToggleRow({ label, active, onToggle }) {
   );
 }
 
-export default function PaneMenu({ showExif, onShowExifChange }) {
+export default function PaneMenu({
+  showExif,
+  onShowExifChange,
+  showGcam,
+  onShowGcamChange,
+  showZoom,
+  onShowZoomChange,
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -41,6 +48,8 @@ export default function PaneMenu({ showExif, onShowExifChange }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60 border-white/10 bg-[#111113] p-1 text-white">
         <ToggleRow label="Mostra EXIF" active={showExif} onToggle={onShowExifChange} />
+        <ToggleRow label="Mostra GCAM" active={showGcam} onToggle={onShowGcamChange} />
+        <ToggleRow label="Mostra ZOOM" active={showZoom} onToggle={onShowZoomChange} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -10,7 +10,16 @@ function zoomLabel(view) {
   return `${Math.round(view.scale * 100)}%`;
 }
 
-export default function ComparePane({ badge, name, file, exif, onChange, showExif, hdr, apiRef }) {
+function formatFileSize(bytes) {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return "n/d";
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1).replace(".", ",")} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+export default function ComparePane({
+  badge, name, file, exif, onChange, showExif, showGcam, showZoom, hdr, apiRef,
+}) {
   const containerRef = useRef(null);
   const hostRef = useRef(null);
   const textureRef = useRef(null);
@@ -352,20 +361,44 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         {badge}
       </span>
 
-      {showExif && (
-        <div className="pointer-events-none absolute bottom-2.5 right-2.5 max-w-[82%] rounded-lg bg-black/55 px-2.5 py-2 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm">
-          <p className="truncate text-white">{name}</p>
-          <p className="mt-1">
-            {exif === undefined ? "…" : exif?.exposure || "n/d"}
-            <span className="text-white/35"> · </span>
-            ISO {exif === undefined ? "…" : exif?.iso || "n/d"}
-          </p>
-          <p>
-            <span ref={bindDims}>—</span> px
-          </p>
-          <p className="text-primary">
-            Zoom: <span ref={bindZoom}>100%</span>
-          </p>
+      {(showExif || showGcam) && (
+        <div className="pointer-events-none absolute bottom-2.5 right-2.5 max-w-[75%] rounded-lg bg-black/55 px-2 py-1.5 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm">
+          {showExif && (
+            <div>
+              <p className="truncate text-white">{name}</p>
+              <p className="truncate">
+                <span ref={bindDims}>—</span> px
+                <span className="text-white/35"> · </span>
+                {formatFileSize(file?.size)}
+              </p>
+              <p className="truncate">
+                {exif === undefined ? "…" : exif?.exposure || "n/d"}
+                <span className="text-white/35"> · </span>
+                ISO {exif === undefined ? "…" : exif?.iso || "n/d"}
+              </p>
+            </div>
+          )}
+          {showGcam && (
+            <div className={showExif ? "mt-1 border-t border-white/20 pt-1" : ""}>
+              <p className="truncate">
+                <span className="text-primary">GCAM </span>
+                {exif === undefined ? "…" : exif?.frameCount != null ? `${exif.frameCount} frame` : "Frame n/d"}
+                <span className="text-white/35"> · </span>
+                {exif === undefined ? "…" : exif?.gcamVersion || "Versione n/d"}
+              </p>
+              <p className="truncate" title={exif?.software || undefined}>
+                {exif === undefined ? "…" : exif?.software || "Software n/d"}
+              </p>
+              <p className="truncate" title={exif?.model || undefined}>
+                {exif === undefined ? "…" : exif?.model || "Modello n/d"}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      {showZoom && (
+        <div className="pointer-events-none absolute bottom-2.5 left-2.5 font-mono text-[10px] leading-[1.35] text-primary">
+          Zoom: <span ref={bindZoom}>100%</span>
         </div>
       )}
     </div>

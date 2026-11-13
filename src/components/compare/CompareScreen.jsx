@@ -10,6 +10,8 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
   const [exif, setExif] = useState({});
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
+  const [showGcam, setShowGcam] = useState(false);
+  const [showZoom, setShowZoom] = useState(true);
   const [hdr, setHdr] = useState(false);
 
   const views = useRef({ a: IDENTITY, b: IDENTITY });
@@ -81,6 +83,10 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
           <PaneMenu
             showExif={showExif}
             onShowExifChange={setShowExif}
+            showGcam={showGcam}
+            onShowGcamChange={setShowGcam}
+            showZoom={showZoom}
+            onShowZoomChange={setShowZoom}
           />
         </div>
       </header>
@@ -95,6 +101,8 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
             apiRef={paneA}
             onChange={(next) => handleChange("a", next)}
             showExif={showExif}
+            showGcam={showGcam}
+            showZoom={showZoom}
             hdr={hdr}
           />
         </div>
@@ -108,6 +116,8 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
             apiRef={paneB}
             onChange={(next) => handleChange("b", next)}
             showExif={showExif}
+            showGcam={showGcam}
+            showZoom={showZoom}
             hdr={hdr}
           />
         </div>

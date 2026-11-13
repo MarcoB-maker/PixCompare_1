@@ -1,4 +1,7 @@
 const TAG_EXIF_IFD = 0x8769;
+const TAG_IMAGE_DESCRIPTION = 0x010e;
+const TAG_MODEL = 0x0110;
+const TAG_SOFTWARE = 0x0131;
 const TAG_ISO = 0x8827;
 const TAG_ISO_ALT = 0x8833;
 const TAG_EXPOSURE = 0x829a;
@@ -47,8 +50,25 @@ function parseTiff(view, start) {
     return numerator / denominator;
   };
 
+  // IFD0 contiene ImageDescription (usata da AGC), modello e software.
+  const readAscii = (type, count, valueOffset) => {
+    if (type !== 2 || count < 1 || count > 16384) return null;
+    const at = count <= 4 ? valueOffset : start + view.getUint32(valueOffset, little);
+    if (at < 0 || at + count > view.byteLength) return null;
+    const bytes = new Uint8Array(view.buffer, view.byteOffset + at, count);
+    return new TextDecoder("utf-8").decode(bytes).replace(/\0/g, "").trim() || null;
+  };
+
   readEntry(firstIfd, (tag, type, count, valueOffset) => {
-    if (tag === TAG_EXIF_IFD) exifIfd = start + view.getUint32(valueOffset, little);
+    if (tag === TAG_EXIF_IFD && type === 4) {
+      exifIfd = start + view.getUint32(valueOffset, little);
+    } else if (tag === TAG_IMAGE_DESCRIPTION) {
+      out.imageDescription = readAscii(type, count, valueOffset);
+    } else if (tag === TAG_MODEL) {
+      out.model = readAscii(type, count, valueOffset);
+    } else if (tag === TAG_SOFTWARE) {
+      out.software = readAscii(type, count, valueOffset);
+    }
   });
 
   if (exifIfd) {
@@ -109,8 +129,15 @@ export async function readExif(file) {
     if (!parsed) return null;
     const exposure = formatExposure(parsed.exposure);
     const iso = parsed.iso || null;
-    if (!exposure && !iso) return null;
-    return { exposure, iso };
+    const description = parsed.imageDescription || "";
+    const countMatch = description.match(/(?:^|[\r\n])\s*FrameCount\s*=\s*(\d+)/i);
+    const versionMatch = description.match(/(?:^|[\r\n])\s*Version\s*=\s*([^\r\n\0]+)/i);
+    const frameCount = countMatch ? Number(countMatch[1]) : null;
+    const gcamVersion = versionMatch ? versionMatch[1].trim() : null;
+    const software = parsed.software || null;
+    const model = parsed.model || null;
+    if (!exposure && !iso && frameCount == null && !gcamVersion && !software && !model) return null;
+    return { exposure, iso, frameCount, gcamVersion, software, model };
   } catch {
     return null;
   }
