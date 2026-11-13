@@ -2,6 +2,7 @@ const TAG_EXIF_IFD = 0x8769;
 const TAG_IMAGE_DESCRIPTION = 0x010e;
 const TAG_MODEL = 0x0110;
 const TAG_SOFTWARE = 0x0131;
+const TAG_COPYRIGHT = 0x8298;
 const TAG_ISO = 0x8827;
 const TAG_ISO_ALT = 0x8833;
 const TAG_EXPOSURE = 0x829a;
@@ -435,6 +436,8 @@ function parseTiff(view, start) {
       out.model = readAscii(type, count, valueOffset);
     } else if (tag === TAG_SOFTWARE) {
       out.software = readAscii(type, count, valueOffset);
+    } else if (tag === TAG_COPYRIGHT) {
+      out.copyright = readAscii(type, count, valueOffset);
     }
   });
 
@@ -502,14 +505,16 @@ export async function readExif(file) {
     const frameCount = countMatch ? Number(countMatch[1]) : null;
     const gcamVersion = versionMatch ? versionMatch[1].trim() : null;
     const software = parsed.software || null;
+    const copyright = parsed.copyright || null;
     const model = parsed.model || null;
-    if (!exposure && !iso && frameCount == null && !gcamVersion && !software && !model) return null;
+    if (!exposure && !iso && frameCount == null && !gcamVersion && !software && !copyright && !model) return null;
     return {
       exposure,
       iso,
       frameCount,
       gcamVersion,
       software,
+      copyright,
       model,
       modelName: getDeviceModelName(model),
     };

@@ -386,8 +386,23 @@ export default function ComparePane({
                 <span className="text-white/35"> · </span>
                 {exif === undefined ? "…" : exif?.gcamVersion || "Versione n/d"}
               </p>
-              <p className="truncate" title={exif?.software || undefined}>
-                {exif === undefined ? "…" : exif?.software || "Software n/d"}
+              <p
+                className="break-words"
+                title={exif ? [exif.software, exif.copyright].filter(Boolean).join(" · ") || undefined : undefined}
+              >
+                {exif === undefined ? (
+                  "…"
+                ) : (
+                  <>
+                    {exif?.software || exif?.copyright || "Software n/d"}
+                    {exif?.software && exif?.copyright && (
+                      <>
+                        <span className="text-white/35"> · </span>
+                        <span>© {exif.copyright}</span>
+                      </>
+                    )}
+                  </>
+                )}
               </p>
               <p className="truncate" title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
                 {exif === undefined ? "…" : exif?.modelName || exif?.model || "Modello n/d"}
