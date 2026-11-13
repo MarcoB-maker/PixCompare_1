@@ -174,6 +174,13 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
   };
 
   const schedulePinch = (next) => {
+    // In UHDR prova ad applicare il pinch immediatamente per ridurre
+    // la latenza aggiunta dalla coda requestAnimationFrame.
+    // In SDR conserviamo il comportamento precedente, gia fluido.
+    if (hdr) {
+      push(next);
+      return;
+    }
     pendingPinchRef.current = next;
     if (pinchFrameRef.current !== null) return;
     pinchFrameRef.current = requestAnimationFrame(() => {
