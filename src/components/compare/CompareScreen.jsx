@@ -64,14 +64,21 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/35">
-          <span className={synced ? "text-primary" : ""}>sync</span> · confronto
-        </p>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => toggleSync(!synced)}
+            aria-pressed={synced}
+            aria-label={synced ? "SYNC attivo: disattiva la sincronizzazione" : "SYNC disattivato: attiva la sincronizzazione"}
+            title="Sincronizza zoom e spostamento"
+            className={`h-9 rounded-full px-2.5 font-mono text-[10px] uppercase tracking-[0.16em] transition active:scale-95 ${
+              synced ? "bg-primary/15 text-primary" : "text-white/45 hover:bg-white/10"
+            }`}
+          >
+            SYNC
+          </button>
           <HdrToggle hdr={hdr} onToggle={setHdr} />
           <PaneMenu
-            synced={synced}
-            onSyncedChange={toggleSync}
             showExif={showExif}
             onShowExifChange={setShowExif}
           />

@@ -27,7 +27,7 @@ function ToggleRow({ label, active, onToggle }) {
   );
 }
 
-export default function PaneMenu({ synced, onSyncedChange, showExif, onShowExifChange }) {
+export default function PaneMenu({ showExif, onShowExifChange }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -40,7 +40,6 @@ export default function PaneMenu({ synced, onSyncedChange, showExif, onShowExifC
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60 border-white/10 bg-[#111113] p-1 text-white">
-        <ToggleRow label="Sincronizza zoom e pan" active={synced} onToggle={onSyncedChange} />
         <ToggleRow label="Mostra EXIF" active={showExif} onToggle={onShowExifChange} />
       </DropdownMenuContent>
     </DropdownMenu>
