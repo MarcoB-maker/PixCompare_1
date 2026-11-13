@@ -51,9 +51,11 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
     if (!el || !nat || !box.w || !box.h) return;
     const fit = Math.min(box.w / nat.w, box.h / nat.h);
     const total = fit * view.scale;
-    el.style.transform = `translate3d(${view.x}px, ${view.y}px, 0) scale(${total})`;
+    el.style.transform = hdr
+      ? `translate(${view.x}px, ${view.y}px) scale(${total})`
+      : `translate3d(${view.x}px, ${view.y}px, 0) scale(${total})`;
     if (zoomRef.current) zoomRef.current.textContent = zoomLabel(view);
-  }, []);
+  }, [hdr]);
 
   // Full-resolution texture, swapped at runtime when UHDR changes.
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         el.style.width = `${texture.width}px`;
         el.style.height = `${texture.height}px`;
         el.style.transformOrigin = "center center";
-        el.style.willChange = "transform";
+        el.style.willChange = hdr ? "auto" : "transform";
 
         host.style.width = `${texture.width}px`;
         host.style.height = `${texture.height}px`;
@@ -324,7 +326,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         <div
           ref={hostRef}
           className="absolute left-1/2 top-1/2"
-          style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
+          style={hdr ? undefined : { transform: "translateZ(0)", backfaceVisibility: "hidden" }}
         />
         {!ready && !loadError && (
           <div className="absolute inset-0 grid place-items-center text-white/40">
