@@ -8,7 +8,7 @@ function sdrTexture(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.decoding = "sync";
+    img.decoding = "async";
     img.draggable = false;
     img.onload = () =>
       resolve({
