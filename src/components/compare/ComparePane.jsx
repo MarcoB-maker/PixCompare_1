@@ -21,6 +21,8 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
   const viewRef = useRef(IDENTITY);
   const pointers = useRef(new Map());
   const gestureRef = useRef(null);
+  const pinchFrameRef = useRef(null);
+  const pendingPinchRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
@@ -84,11 +86,16 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         naturalRef.current = { w: texture.width, h: texture.height };
         textureRef.current = el;
         if (dimsRef.current) dimsRef.current.textContent = `${texture.width}×${texture.height}`;
+        setLoadError(false);
         setReady(true);
         applyView(viewRef.current);
       })
-      .catch(() => {
-        if (!cancelled) setReady(false);
+      .catch((error) => {
+        console.error("Errore caricamento immagine:", error);
+        if (!cancelled) {
+          setLoadError(true);
+          setReady(false);
+        }
       });
 
     return () => {
@@ -134,6 +141,39 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
     [applyView, clampView, onChange]
   );
 
+  // Accorpa gli aggiornamenti del pinch: al massimo uno per frame.
+  // Pan e sincronizzazione continuano a usare push() senza cambiamenti.
+  const flushPendingPinch = () => {
+    if (pinchFrameRef.current !== null) {
+      cancelAnimationFrame(pinchFrameRef.current);
+      pinchFrameRef.current = null;
+    }
+    const pending = pendingPinchRef.current;
+    pendingPinchRef.current = null;
+    if (pending) push(pending);
+  };
+
+  const schedulePinch = (next) => {
+    pendingPinchRef.current = next;
+    if (pinchFrameRef.current !== null) return;
+    pinchFrameRef.current = requestAnimationFrame(() => {
+      pinchFrameRef.current = null;
+      const pending = pendingPinchRef.current;
+      pendingPinchRef.current = null;
+      if (pending) push(pending);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pinchFrameRef.current !== null) {
+        cancelAnimationFrame(pinchFrameRef.current);
+      }
+      pinchFrameRef.current = null;
+      pendingPinchRef.current = null;
+    };
+  }, []);
+
   const beginGesture = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -149,11 +189,15 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
       };
     } else if (points.length >= 2) {
       const [p1, p2] = points;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
       gestureRef.current = {
         type: "pinch",
         distance: Math.max(1, Math.hypot(p1.x - p2.x, p1.y - p2.y)),
-        anchorX: (p1.x + p2.x) / 2 - (rect.left + rect.width / 2),
-        anchorY: (p1.y + p2.y) / 2 - (rect.top + rect.height / 2),
+        anchorX: (p1.x + p2.x) / 2 - centerX,
+        anchorY: (p1.y + p2.y) / 2 - centerY,
+        centerX,
+        centerY,
         base,
       };
     } else {
@@ -163,6 +207,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
 
   const handlePointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    flushPendingPinch();
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -189,9 +234,6 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
     }
 
     if (current.type === "pinch" && points.length >= 2) {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
       const [p1, p2] = points;
       const distance = Math.max(1, Math.hypot(p1.x - p2.x, p1.y - p2.y));
       const scale = Math.min(
@@ -199,9 +241,9 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         Math.max(MIN_ZOOM, current.base.scale * (distance / current.distance))
       );
       const ratio = scale / current.base.scale;
-      const anchorX = (p1.x + p2.x) / 2 - (rect.left + rect.width / 2);
-      const anchorY = (p1.y + p2.y) / 2 - (rect.top + rect.height / 2);
-      push({
+      const anchorX = (p1.x + p2.x) / 2 - current.centerX;
+      const anchorY = (p1.y + p2.y) / 2 - current.centerY;
+      schedulePinch({
         scale,
         x: anchorX - ratio * (current.anchorX - current.base.x),
         y: anchorY - ratio * (current.anchorY - current.base.y),
@@ -210,6 +252,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
   };
 
   const handlePointerUp = (event) => {
+    flushPendingPinch();
     pointers.current.delete(event.pointerId);
     if (pointers.current.size === 0) gestureRef.current = null;
     else beginGesture();
@@ -268,6 +311,11 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         {!ready && !loadError && (
           <div className="absolute inset-0 grid place-items-center text-white/40">
             <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        )}
+        {loadError && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center px-4 text-center text-sm text-white/70">
+            Impossibile caricare l'immagine
           </div>
         )}
       </div>
