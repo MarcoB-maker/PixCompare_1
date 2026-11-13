@@ -24,7 +24,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
   const pinchFrameRef = useRef(null);
   const pendingPinchRef = useRef(null);
   const [ready, setReady] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const clampView = useCallback((next) => {
     const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next.scale));
@@ -60,6 +60,15 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
     let cancelled = false;
     let release = () => {};
 
+    // Prima della nuova decodifica libera l'immagine precedente dal DOM.
+    // Importante quando si passa da due JPEG Ultra HDR a due canvas SDR.
+    const previousHost = hostRef.current;
+    if (previousHost) previousHost.replaceChildren();
+    textureRef.current = null;
+    naturalRef.current = null;
+    setReady(false);
+    setLoadError("");
+
     decodeTexture(file, { hdr })
       .then((texture) => {
         if (cancelled) {
@@ -67,7 +76,10 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
           return;
         }
         const host = hostRef.current;
-        if (!host) return;
+        if (!host) {
+          texture.release?.();
+          return;
+        }
         release = texture.release || release;
 
         const el = texture.element;
@@ -86,20 +98,26 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
         naturalRef.current = { w: texture.width, h: texture.height };
         textureRef.current = el;
         if (dimsRef.current) dimsRef.current.textContent = `${texture.width}×${texture.height}`;
-        setLoadError(false);
+        setLoadError("");
         setReady(true);
         applyView(viewRef.current);
       })
       .catch((error) => {
         console.error("Errore caricamento immagine:", error);
         if (!cancelled) {
-          setLoadError(true);
+          setLoadError(error?.message || String(error));
           setReady(false);
         }
       });
 
     return () => {
       cancelled = true;
+      // Revoca l'URL (HDR) o libera il canvas (SDR) e scollega il nodo
+      // prima di iniziare la decodifica successiva.
+      const host = hostRef.current;
+      if (host) host.replaceChildren();
+      textureRef.current = null;
+      naturalRef.current = null;
       release();
     };
   }, [file, hdr, applyView]);
@@ -314,8 +332,9 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
           </div>
         )}
         {loadError && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center px-4 text-center text-sm text-white/70">
-            Impossibile caricare l'immagine
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-white/70">
+            <p>Impossibile caricare l'immagine</p>
+            <p className="mt-2 max-w-full break-words text-[11px] text-white/50">{loadError}</p>
           </div>
         )}
       </div>
