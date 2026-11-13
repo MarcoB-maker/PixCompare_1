@@ -38,10 +38,7 @@ async function drawToCanvas(source, width, height) {
 }
 
 async function hdrTexture(file) {
-  alert(
-  "Formato: " + file.type +
-  "\nDimensione: " + file.size + " byte"
-);
+  
   if (typeof window !== "undefined" && "ImageDecoder" in window) {
     const decoder = new ImageDecoder({
       data: file.stream(),
@@ -77,8 +74,7 @@ export async function decodeTexture(file, { hdr = false } = {}) {
     try {
       return await hdrTexture(file);
     } catch (error) {
-  console.error("Errore UHDR:", error);
-  alert("Errore UHDR: " + (error?.message || String(error)));
+  console.error("Decodifica UHDR non riuscita, ritorno a SDR:", error);
 }
   }
   return sdrTexture(file);

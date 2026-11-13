@@ -22,6 +22,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
   const pointers = useRef(new Map());
   const gestureRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const clampView = useCallback((next) => {
     const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next.scale));
@@ -264,7 +265,7 @@ export default function ComparePane({ badge, name, file, exif, onChange, showExi
           className="absolute left-1/2 top-1/2"
           style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
         />
-        {!ready && (
+        {!ready && !loadError && (
           <div className="absolute inset-0 grid place-items-center text-white/40">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
