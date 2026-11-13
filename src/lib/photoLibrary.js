@@ -1,6 +1,12 @@
 import { useSyncExternalStore } from "react";
 
-const EMPTY = { assets: [], selection: { a: null, b: null } };
+export const PHOTO_SLOTS = ["a", "b", "c", "d"];
+
+const EMPTY = {
+  assets: [],
+  selection: { a: null, b: null, c: null, d: null },
+  compareCount: 2,
+};
 
 let state = EMPTY;
 const listeners = new Set();
@@ -24,16 +30,27 @@ function commit(next) {
   listeners.forEach((listener) => listener());
 }
 
+// Cambiare il numero di foto non cancella C/D: restano selezionate se si torna a 3/4.
+export function setCompareCount(value) {
+  const count = Number(value);
+  if (![2, 3, 4].includes(count) || state.compareCount === count) return;
+  commit({ ...state, compareCount: count });
+}
+
 export function selectPhoto(slot, asset) {
+  if (!PHOTO_SLOTS.includes(slot)) return;
   commit({ ...state, selection: { ...state.selection, [slot]: asset } });
 }
 
-// Scambia le foto selezionate senza toccare i file originali.
-// Anche la schermata iniziale si aggiorna immediatamente.
-export function swapSelectedPhotos() {
-  const { a, b } = state.selection;
-  if (!a || !b) return;
-  commit({ ...state, selection: { a: b, b: a } });
+// Scambia due posizioni senza alterare i File, le anteprime o i metadati.
+export function swapSelectedPhotos(first = "a", second = "b") {
+  if (first === second || !PHOTO_SLOTS.includes(first) || !PHOTO_SLOTS.includes(second)) return;
+  const selection = state.selection;
+  if (!selection[first] || !selection[second]) return;
+  commit({
+    ...state,
+    selection: { ...selection, [first]: selection[second], [second]: selection[first] },
+  });
 }
 
 async function makeThumb(file) {

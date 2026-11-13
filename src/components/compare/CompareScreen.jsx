@@ -7,13 +7,15 @@ import { readExif } from "@/lib/exif";
 import { swapSelectedPhotos } from "@/lib/photoLibrary";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
-export default function CompareScreen({ photoA, photoB, onBack }) {
-  // Le due istanze restano associate alle foto originali: "Inverti" sposta
-  // i riquadri con CSS, evitando nuove decodifiche SDR/UHDR e mantenendo lo zoom.
-  const initialPhotos = useRef({ photoA, photoB });
-  const sourceA = initialPhotos.current.photoA;
-  const sourceB = initialPhotos.current.photoB;
-  const [reversed, setReversed] = useState(false);
+const LETTERS = ["A", "B", "C", "D"];
+
+export default function CompareScreen({ photos, onBack }) {
+  // Le istanze delle fotografie hanno un identificativo stabile.
+  // Scambiare A e B nel confronto a due non ricrea i canvas né ricarica i JPEG HDR.
+  const initialPhotos = useRef(photos).current;
+  const count = initialPhotos.length;
+  const canUseHdr = count === 2;
+  const [order, setOrder] = useState(() => initialPhotos.map(({ slot }) => slot));
   const [exif, setExif] = useState({});
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
@@ -21,53 +23,63 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
   const [showZoom, setShowZoom] = useState(true);
   const [hdr, setHdr] = useState(false);
 
-  const views = useRef({ a: IDENTITY, b: IDENTITY });
-  const baselines = useRef({ a: IDENTITY, b: IDENTITY });
+  const assetsBySlot = Object.fromEntries(initialPhotos.map(({ slot, asset }) => [slot, asset]));
+  const views = useRef({});
+  const baselines = useRef({});
+  const paneRefs = useRef({});
   const syncedRef = useRef(true);
-  const paneA = useRef(null);
-  const paneB = useRef(null);
-  const panes = { a: paneA, b: paneB };
+
+  // Ref per ogni foto, non per la posizione: EXIF, zoom e risorse grafiche
+  // seguono la fotografia anche dopo lo scambio delle posizioni.
+  for (const { slot } of initialPhotos) {
+    if (!paneRefs.current[slot]) paneRefs.current[slot] = { current: null };
+    if (!views.current[slot]) views.current[slot] = IDENTITY;
+    if (!baselines.current[slot]) baselines.current[slot] = IDENTITY;
+  }
 
   useEffect(() => {
     let alive = true;
-    Promise.all([readExif(sourceA.file), readExif(sourceB.file)]).then(([a, b]) => {
-      if (alive) setExif({ a, b });
+    Promise.allSettled(initialPhotos.map(({ asset }) => readExif(asset.file))).then((results) => {
+      if (!alive) return;
+      const entries = initialPhotos.map(({ slot }, index) => [
+        slot,
+        results[index].status === "fulfilled" ? results[index].value : null,
+      ]);
+      setExif(Object.fromEntries(entries));
     });
-    return () => {
-      alive = false;
-    };
-  }, [sourceA, sourceB]);
+    return () => { alive = false; };
+  }, [initialPhotos]);
 
-  // A pane changed its own transform: while synced, the same delta is applied
-  // on top of the other pane's own baseline, so both offsets are preserved.
-  const handleChange = (key, next) => {
-    views.current = { ...views.current, [key]: next };
+  // Applica la stessa variazione di zoom/pan a tutti gli altri riquadri,
+  // mantenendo le rispettive posizioni di partenza.
+  const handleChange = (slot, next) => {
+    views.current = { ...views.current, [slot]: next };
     if (!syncedRef.current) return;
 
-    const other = key === "a" ? "b" : "a";
-    const delta = extractDelta(baselines.current[key], next);
-    const target = compose(baselines.current[other], delta);
-    const api = panes[other].current;
-    const clamped = api ? api.clamp(target) : target;
-
-    views.current = { ...views.current, [other]: clamped };
-    if (api) api.apply(clamped);
+    const delta = extractDelta(baselines.current[slot], next);
+    for (const { slot: other } of initialPhotos) {
+      if (other === slot) continue;
+      const target = compose(baselines.current[other], delta);
+      const api = paneRefs.current[other].current;
+      const clamped = api ? api.clamp(target) : target;
+      views.current = { ...views.current, [other]: clamped };
+      api?.apply(clamped);
+    }
   };
 
-  // Re-activating sync freezes the live state of both photos as new baselines:
-  // no reset, no copying of one position onto the other.
   const toggleSync = (value) => {
     syncedRef.current = value;
     setSynced(value);
-    if (value) baselines.current = { a: views.current.a, b: views.current.b };
+    if (value) {
+      baselines.current = { ...views.current };
+    }
   };
 
   const invertPhotos = () => {
-    // Aggiorna anche la selezione: tornando alla schermata iniziale
-    // si vede lo stesso ordine scelto durante il confronto.
-    swapSelectedPhotos();
-    // Sposta le istanze esistenti, conservando texture, zoom e posizione.
-    setReversed((value) => !value);
+    if (!canUseHdr) return;
+    // Mantiene lo stesso ordine anche quando si torna alla schermata iniziale.
+    swapSelectedPhotos(order[0], order[1]);
+    setOrder((current) => [current[1], current[0]]);
   };
 
   return (
@@ -82,16 +94,18 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={invertPhotos}
-            aria-label="Inverti le fotografie A e B"
-            title="Inverti le fotografie A e B"
-            className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95"
-          >
-            <ArrowDownUp className="h-3.5 w-3.5" />
-            Inverti
-          </button>
+          {canUseHdr && (
+            <button
+              type="button"
+              onClick={invertPhotos}
+              aria-label="Inverti le fotografie A e B"
+              title="Inverti le fotografie A e B"
+              className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95"
+            >
+              <ArrowDownUp className="h-3.5 w-3.5" />
+              Inverti
+            </button>
+          )}
           <button
             type="button"
             onClick={() => toggleSync(!synced)}
@@ -104,7 +118,7 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
           >
             SYNC
           </button>
-          <HdrToggle hdr={hdr} onToggle={setHdr} />
+          {canUseHdr && <HdrToggle hdr={hdr} onToggle={setHdr} />}
           <PaneMenu
             showExif={showExif}
             onShowExifChange={setShowExif}
@@ -116,36 +130,32 @@ export default function CompareScreen({ photoA, photoB, onBack }) {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1" style={{ order: reversed ? 2 : 0 }}>
-          <ComparePane
-            badge={reversed ? "B" : "A"}
-            name={sourceA.name}
-            file={sourceA.file}
-            exif={exif.a}
-            apiRef={paneA}
-            onChange={(next) => handleChange("a", next)}
-            showExif={showExif}
-            showGcam={showGcam}
-            showZoom={showZoom}
-            hdr={hdr}
-          />
-        </div>
-        <div className="h-px w-full shrink-0 bg-white/30" style={{ order: 1 }} />
-        <div className="min-h-0 flex-1" style={{ order: reversed ? 0 : 2 }}>
-          <ComparePane
-            badge={reversed ? "A" : "B"}
-            name={sourceB.name}
-            file={sourceB.file}
-            exif={exif.b}
-            apiRef={paneB}
-            onChange={(next) => handleChange("b", next)}
-            showExif={showExif}
-            showGcam={showGcam}
-            showZoom={showZoom}
-            hdr={hdr}
-          />
-        </div>
+      <div
+        className="grid min-h-0 flex-1 gap-px bg-white/30"
+        style={{
+          gridTemplateColumns: count === 4 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+          gridTemplateRows: `repeat(${count === 3 ? 3 : 2}, minmax(0, 1fr))`,
+        }}
+      >
+        {order.map((slot, index) => {
+          const asset = assetsBySlot[slot];
+          return (
+            <div key={slot} className="min-h-0 min-w-0 overflow-hidden bg-black">
+              <ComparePane
+                badge={LETTERS[index]}
+                name={asset.name}
+                file={asset.file}
+                exif={exif[slot]}
+                apiRef={paneRefs.current[slot]}
+                onChange={(next) => handleChange(slot, next)}
+                showExif={showExif}
+                showGcam={showGcam}
+                showZoom={showZoom}
+                hdr={canUseHdr && hdr}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

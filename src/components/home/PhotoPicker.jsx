@@ -2,7 +2,9 @@ import { useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, FolderOpen, ImagePlus, Loader2, X } from "lucide-react";
 import { importFiles, selectPhoto, usePhotoLibrary } from "@/lib/photoLibrary";
 
-const SLOT_LABEL = { a: "Foto A · sopra", b: "Foto B · sotto" };
+const SLOT_LABEL = {
+  a: "Foto A", b: "Foto B", c: "Foto C", d: "Foto D",
+};
 
 export default function PhotoPicker({ slot, onClose }) {
   const { assets, selection } = usePhotoLibrary();
