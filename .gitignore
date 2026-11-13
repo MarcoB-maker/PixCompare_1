@@ -34,3 +34,12 @@ base44/.app.jsonc
 .output/
 src/components/auth_backup/
 src/lib/error-capture.serverBackup.txt
+
+# Build statica Android generata da Vite
+dist-android/
+
+# File locali generati dalla compilazione Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

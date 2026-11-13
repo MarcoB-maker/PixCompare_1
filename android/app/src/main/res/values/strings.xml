@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PixCompare Mb</string>
+    <string name="title_activity_main">PixCompare Mb</string>
+    <string name="package_name">com.pixcompare.mb</string>
+    <string name="custom_url_scheme">com.pixcompare.mb</string>
+</resources>

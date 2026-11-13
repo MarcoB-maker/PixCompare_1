@@ -15,15 +15,9 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#08080a" },
     ],
     // No icon link: the platform adds the app's logo when serving.
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
-      },
-    ],
+   links: [
+  { rel: "stylesheet", href: appCss },
+],
   }),
   errorComponent: DefaultCatchBoundary,
   notFoundComponent: () => <NotFound />,
