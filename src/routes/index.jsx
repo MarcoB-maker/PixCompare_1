@@ -27,7 +27,7 @@ function HomePage() {
   const ready = Boolean(selection.a && selection.b);
 
   return (
-    <div className="relative flex min-h-dvh flex-col text-foreground">
+    <div className="relative flex h-dvh min-h-0 flex-col overflow-hidden text-foreground">
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0"
@@ -37,7 +37,7 @@ function HomePage() {
         }}
       />
 
-      <header className="relative z-10 flex items-center justify-between px-5 pt-6">
+      <header className="relative z-10 flex shrink-0 items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5">
           <BrandMark />
           <div className="leading-none">
@@ -52,12 +52,7 @@ function HomePage() {
         </span>
       </header>
 
-      <main className="relative z-10 flex flex-1 flex-col gap-3.5 px-4 pb-2 pt-7">
-        <p className="mb-0.5 px-1 font-heading text-[27px] font-semibold leading-[1.12] tracking-tight">
-          Due foto.
-          <br />
-          <span className="text-muted-foreground">Un solo sguardo.</span>
-        </p>
+      <main className="relative z-10 mx-auto flex w-full min-h-0 max-w-xl flex-1 flex-col gap-2 px-4 py-2">
         <PhotoSlot
           label="Foto A"
           position="sopra"
@@ -72,19 +67,16 @@ function HomePage() {
         />
       </main>
 
-      <footer className="relative z-10 mt-auto px-4 pb-[max(1.1rem,env(safe-area-inset-bottom))] pt-4">
+      <footer className="relative z-10 mx-auto w-full max-w-xl shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
           disabled={!ready}
           onClick={() => navigate({ to: "/compare" })}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-[15px] font-semibold text-primary-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30"
         >
           Confronta
           <ArrowRight className="h-4 w-4" />
         </button>
-        <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          {ready ? "JPEG · PNG · WebP · HEIC" : "Seleziona entrambe le foto"}
-        </p>
       </footer>
 
       {pickSlot && <PhotoPicker slot={pickSlot} onClose={() => setPickSlot(null)} />}

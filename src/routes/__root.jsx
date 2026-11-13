@@ -9,7 +9,7 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
       { title: "PixCompare Mb" },
       { name: "description", content: "Confronta due foto pixel per pixel, con zoom e pan sincronizzati." },
       { name: "theme-color", content: "#08080a" },

@@ -5,11 +5,11 @@ export default function PhotoSlot({ label, position, asset, onSelect }) {
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative block w-full overflow-hidden rounded-[20px] border text-left transition ${
+      className={`group relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[20px] border text-left transition ${
         asset ? "border-white/10 bg-card" : "border-dashed border-white/15 bg-white/[0.02]"
       }`}
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/50">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden bg-black/50">
         {asset ? (
           <img
             src={asset.thumb.src}
@@ -32,7 +32,7 @@ export default function PhotoSlot({ label, position, asset, onSelect }) {
           </span>
         )}
       </div>
-      <div className="flex items-center justify-between gap-3 px-3.5 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
         <p className={`truncate text-[13px] ${asset ? "text-foreground" : "text-muted-foreground"}`}>
           {asset ? asset.name : `Nessuna foto ${position}`}
         </p>
