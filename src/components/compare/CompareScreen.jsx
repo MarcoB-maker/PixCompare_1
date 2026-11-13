@@ -151,6 +151,7 @@ export default function CompareScreen({ photos, onBack }) {
                 showExif={showExif}
                 showGcam={showGcam}
                 showZoom={showZoom}
+                compactInfo={count > 2}
                 hdr={canUseHdr && hdr}
               />
             </div>

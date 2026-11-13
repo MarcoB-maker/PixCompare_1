@@ -18,7 +18,7 @@ function formatFileSize(bytes) {
 }
 
 export default function ComparePane({
-  badge, name, file, exif, onChange, showExif, showGcam, showZoom, hdr, apiRef,
+  badge, name, file, exif, onChange, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
 }) {
   const containerRef = useRef(null);
   const hostRef = useRef(null);
@@ -362,16 +362,23 @@ export default function ComparePane({
       </span>
 
       {(showExif || showGcam) && (
-        <div className="pointer-events-none absolute bottom-2.5 right-2.5 max-w-[75%] rounded-lg bg-black/55 px-2 py-1.5 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm">
+        <div
+          className={
+            compactInfo
+              ? "pointer-events-none absolute bottom-8 right-1.5 max-w-[90%] rounded-md bg-black/55 px-1.5 py-1 font-mono text-[9px] leading-[1.3] text-white/85 backdrop-blur-sm"
+              : "pointer-events-none absolute bottom-2.5 right-2.5 max-w-[75%] rounded-lg bg-black/55 px-2 py-1.5 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm"
+          }
+          style={compactInfo ? { overflowWrap: "anywhere" } : undefined}
+        >
           {showExif && (
             <div>
-              <p className="truncate text-white">{name}</p>
-              <p className="truncate">
+              <p className={compactInfo ? "text-white" : "truncate text-white"}>{name}</p>
+              <p className={compactInfo ? "break-words" : "truncate"}>
                 <span ref={bindDims}>—</span> px
                 <span className="text-white/35"> · </span>
                 {formatFileSize(file?.size)}
               </p>
-              <p className="truncate">
+              <p className={compactInfo ? "break-words" : "truncate"}>
                 {exif === undefined ? "…" : exif?.exposure || "n/d"}
                 <span className="text-white/35"> · </span>
                 ISO {exif === undefined ? "…" : exif?.iso || "n/d"}
@@ -380,7 +387,7 @@ export default function ComparePane({
           )}
           {showGcam && (
             <div className={showExif ? "mt-1 border-t border-white/20 pt-1" : ""}>
-              <p className="truncate">
+              <p className={compactInfo ? "break-words" : "truncate"}>
                 <span className="text-primary">GCAM </span>
                 {exif === undefined ? "…" : exif?.frameCount != null ? `${exif.frameCount} frame` : "Frame n/d"}
                 <span className="text-white/35"> · </span>
@@ -404,7 +411,7 @@ export default function ComparePane({
                   </>
                 )}
               </p>
-              <p className="truncate" title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
+              <p className={compactInfo ? "break-words" : "truncate"} title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
                 {exif === undefined ? "…" : exif?.modelName || exif?.model || "Modello n/d"}
               </p>
             </div>
