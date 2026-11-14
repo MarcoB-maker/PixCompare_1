@@ -3,11 +3,16 @@ import { ArrowDownUp, ArrowLeft } from "lucide-react";
 import ComparePane from "./ComparePane";
 import PaneMenu from "./PaneMenu";
 import HdrToggle from "./HdrToggle";
+import AlignmentGuides from "./AlignmentGuides";
 import { readExif } from "@/lib/exif";
 import { swapSelectedPhotos } from "@/lib/photoLibrary";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
 const LETTERS = ["A", "B", "C", "D"];
+const DEFAULT_GUIDES = [
+  { x: 0.33, y: 0.35 },
+  { x: 0.67, y: 0.67 },
+];
 
 export default function CompareScreen({ photos, onBack }) {
   // Identificativi stabili: nascondere un pannello in SOLO non smonta la foto.
@@ -24,6 +29,20 @@ export default function CompareScreen({ photos, onBack }) {
   const [showGcam, setShowGcam] = useState(false);
   const [showZoom, setShowZoom] = useState(true);
   const [hdr, setHdr] = useState(false);
+  // Le guide restano fisse rispetto al display quando cambia la fotografia.
+  // In NASCONDI conserviamo le coordinate: riattivandole tornano dove erano.
+  const [guideMode, setGuideMode] = useState("hidden");
+  const [guides, setGuides] = useState(DEFAULT_GUIDES);
+
+  const changeGuide = (index, axis, position) => {
+    setGuides((previous) => previous.map((guide, i) => {
+      if (i !== index) return guide;
+      return {
+        x: axis === "y" ? guide.x : position.x,
+        y: axis === "x" ? guide.y : position.y,
+      };
+    }));
+  };
 
   const assetsBySlot = Object.fromEntries(initialPhotos.map(({ slot, asset }) => [slot, asset]));
   const views = useRef({});
@@ -89,7 +108,8 @@ export default function CompareScreen({ photos, onBack }) {
   };
 
   const invertPhotos = () => {
-    if (!canUseSolo) return;
+    // In REGOLA non si può cambiare foto: si trascinano soltanto le guide.
+    if (!canUseSolo || (solo && guideMode === "edit")) return;
     if (solo) {
       // In SOLO cambia solo la foto mostrata, senza modificare la selezione.
       switchSoloPhoto();
@@ -146,9 +166,10 @@ export default function CompareScreen({ photos, onBack }) {
             <button
               type="button"
               onClick={invertPhotos}
+              disabled={solo && guideMode === "edit"}
               aria-label={solo ? "Mostra l'altra fotografia" : "Inverti le fotografie A e B"}
               title={solo ? "Passa alla foto A/B" : "Inverti le fotografie A e B"}
-              className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95"
+              className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowDownUp className="h-3.5 w-3.5" />
               Inverti
@@ -174,6 +195,9 @@ export default function CompareScreen({ photos, onBack }) {
             onShowGcamChange={setShowGcam}
             showZoom={showZoom}
             onShowZoomChange={setShowZoom}
+            allowGuides={canUseSolo && solo}
+            guidesVisible={guideMode !== "hidden"}
+            onGuidesChange={(visible) => setGuideMode(visible ? "edit" : "hidden")}
           />
         </div>
       </header>
@@ -220,6 +244,14 @@ export default function CompareScreen({ photos, onBack }) {
             </div>
           );
         })}
+        {canUseSolo && solo && guideMode !== "hidden" && (
+          <AlignmentGuides
+            guides={guides}
+            mode={guideMode}
+            onGuideChange={changeGuide}
+            onModeChange={setGuideMode}
+          />
+        )}
       </div>
     </div>
   );

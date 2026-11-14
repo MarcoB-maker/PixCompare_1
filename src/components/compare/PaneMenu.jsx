@@ -34,6 +34,9 @@ export default function PaneMenu({
   onShowGcamChange,
   showZoom,
   onShowZoomChange,
+  allowGuides = false,
+  guidesVisible = false,
+  onGuidesChange,
 }) {
   return (
     <DropdownMenu>
@@ -50,6 +53,12 @@ export default function PaneMenu({
         <ToggleRow label="Mostra EXIF" active={showExif} onToggle={onShowExifChange} />
         <ToggleRow label="Mostra GCAM" active={showGcam} onToggle={onShowGcamChange} />
         <ToggleRow label="Mostra ZOOM" active={showZoom} onToggle={onShowZoomChange} />
+        {allowGuides && (
+          <>
+            <div className="my-1 border-t border-white/15" />
+            <ToggleRow label="Linee guida" active={guidesVisible} onToggle={onGuidesChange} />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
