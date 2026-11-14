@@ -7,6 +7,9 @@ import { useTranslation } from "@/lib/i18n";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 40;
+const DOUBLE_TAP_MS = 300;
+const TAP_MOVE_PX = 10;
+const DOUBLE_TAP_DISTANCE_PX = 28;
 
 function zoomLabel(view) {
   return `${Math.round(view.scale * 100)}%`;
@@ -20,7 +23,7 @@ function formatFileSize(bytes, language) {
 }
 
 export default function ComparePane({
-  badge, name, file, exif, onChange, onSingleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
+  badge, name, file, exif, onChange, onSingleTap, onDoubleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
   navigation, assetId, onTextureReady, onBadgeClick, navigationOpen = false, navigationIndex = 0,
   navigationCount = 0, onPreviousPhoto, onNextPhoto,
 }) {
@@ -36,6 +39,7 @@ export default function ComparePane({
   const pointers = useRef(new Map());
   const gestureRef = useRef(null);
   const tapRef = useRef(null);
+  const pendingTapRef = useRef(null);
   const pinchFrameRef = useRef(null);
   const pendingPinchRef = useRef(null);
   const restoredNavigationToken = useRef(null);
@@ -283,12 +287,19 @@ export default function ComparePane({
     }
   }, []);
 
+  // Distingue il tap singolo di SOLO dal doppio tap senza usare il doppio
+  // click nativo del browser (che potrebbe interferire con il pinch).
+  const clearPendingTap = () => {
+    if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+      clearTimeout(pendingTapRef.current.timer);
+    }
+    pendingTapRef.current = null;
+  };
+
   const handlePointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     flushPendingPinch();
-    // Un solo tocco breve cambia A/B soltanto in SOLO. Non deve essere
-    // confuso con pan o pinch, anche quando il pan è bloccato dai margini.
-    if (onSingleTap && pointers.current.size === 0) {
+    if (pointers.current.size === 0) {
       tapRef.current = {
         id: event.pointerId,
         x: event.clientX,
@@ -296,7 +307,9 @@ export default function ComparePane({
         time: performance.now(),
       };
     } else {
+      // Un secondo dito annulla ogni possibile tap: questo e' un pinch.
       tapRef.current = null;
+      clearPendingTap();
     }
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -310,8 +323,10 @@ export default function ComparePane({
   const handlePointerMove = (event) => {
     if (!pointers.current.has(event.pointerId)) return;
     if (tapRef.current?.id === event.pointerId &&
-        Math.hypot(event.clientX - tapRef.current.x, event.clientY - tapRef.current.y) > 10) {
+        Math.hypot(event.clientX - tapRef.current.x, event.clientY - tapRef.current.y) > TAP_MOVE_PX) {
       tapRef.current = null;
+      // Se l'utente inizia a trascinare, non cambiare foto per un tap precedente.
+      clearPendingTap();
     }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const current = gestureRef.current;
@@ -347,17 +362,73 @@ export default function ComparePane({
 
   const handlePointerUp = (event) => {
     flushPendingPinch();
-    const tap = tapRef.current;
-    const singleTap = event.type === "pointerup" && onSingleTap && tap &&
-      tap.id === event.pointerId && pointers.current.size === 1 &&
-      performance.now() - tap.time < 350 &&
-      Math.hypot(event.clientX - tap.x, event.clientY - tap.y) <= 10;
+    const candidate = tapRef.current;
+    const validTap = event.type === "pointerup" && candidate &&
+      candidate.id === event.pointerId && pointers.current.size === 1 &&
+      performance.now() - candidate.time < 350 &&
+      Math.hypot(event.clientX - candidate.x, event.clientY - candidate.y) <= TAP_MOVE_PX;
     tapRef.current = null;
     pointers.current.delete(event.pointerId);
     if (pointers.current.size === 0) gestureRef.current = null;
     else beginGesture();
-    if (singleTap) onSingleTap();
+
+    if (!validTap) {
+      clearPendingTap();
+      return;
+    }
+
+    const now = performance.now();
+    const prior = pendingTapRef.current;
+    if (prior && now - prior.time <= DOUBLE_TAP_MS &&
+        Math.hypot(event.clientX - prior.x, event.clientY - prior.y) <= DOUBLE_TAP_DISTANCE_PX) {
+      clearPendingTap();
+      // A 100% il doppio tap non modifica l'immagine; sopra il 100%
+      // ripristina lo zoom senza eseguire il cambio A/B di SOLO.
+      if (viewRef.current.scale > MIN_ZOOM + 0.001) onDoubleTap?.();
+      return;
+    }
+
+    // Se due tap sono molto distanti, il primo e' un tap singolo.
+    if (prior) {
+      clearPendingTap();
+      prior.onSingleTap?.();
+    }
+    const pending = {
+      time: now,
+      x: event.clientX,
+      y: event.clientY,
+      onSingleTap,
+      timer: null,
+    };
+    pending.timer = setTimeout(() => {
+      if (pendingTapRef.current !== pending) return;
+      pendingTapRef.current = null;
+      pending.onSingleTap?.();
+    }, DOUBLE_TAP_MS);
+    pendingTapRef.current = pending;
   };
+
+  // Se il riquadro SOLO non e' piu' quello visibile, annulla un eventuale
+  // tap singolo in attesa, evitando un cambio A/B involontario.
+  const singleTapEnabled = Boolean(onSingleTap);
+  useEffect(() => {
+    if (singleTapEnabled) return;
+    if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+      clearTimeout(pendingTapRef.current.timer);
+    }
+    pendingTapRef.current = null;
+    tapRef.current = null;
+  }, [singleTapEnabled]);
+
+  // Evita tap pendenti dopo smontaggio o cambio della modalita' SOLO.
+  useEffect(() => {
+    return () => {
+      if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+        clearTimeout(pendingTapRef.current.timer);
+      }
+      pendingTapRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;

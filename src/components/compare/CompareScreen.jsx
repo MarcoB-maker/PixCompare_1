@@ -148,6 +148,20 @@ export default function CompareScreen({ photos, onBack }) {
     }
   };
 
+  // Doppio tap: ripristina il 100% e centra le immagini. Con SYNC acceso
+  // coinvolge tutti i riquadri, anche quello nascosto dalla modalita' SOLO.
+  // Aggiorna anche le basi della sincronizzazione per evitare salti al gesto successivo.
+  const resetZoom = (slot) => {
+    const slots = syncedRef.current ? initialPhotos.map(({ slot: id }) => id) : [slot];
+    for (const id of slots) {
+      const api = paneRefs.current[id]?.current;
+      const centered = api ? api.clamp({ ...IDENTITY }) : { ...IDENTITY };
+      views.current[id] = centered;
+      api?.apply(centered);
+    }
+    if (syncedRef.current) baselines.current = { ...views.current };
+  };
+
   const toggleSync = (value) => {
     syncedRef.current = value;
     setSynced(value);
@@ -298,7 +312,8 @@ export default function CompareScreen({ photos, onBack }) {
                 exif={exif[slot]}
                 apiRef={paneRefs.current[slot]}
                 onChange={(next) => handleChange(slot, next)}
-                onSingleTap={canUseSolo && solo && !hiddenInSolo ? switchSoloPhoto : undefined}
+                onSingleTap={canUseSolo && solo && !hiddenInSolo && guideMode !== "edit" ? switchSoloPhoto : undefined}
+                onDoubleTap={() => resetZoom(slot)}
                 showExif={showExif}
                 showGcam={showGcam}
                 showZoom={showZoom}

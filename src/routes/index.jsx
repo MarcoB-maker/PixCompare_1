@@ -15,7 +15,7 @@ import PhotoPicker from "@/components/home/PhotoPicker";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "PixCompare Mb — Pixel-perfect photo comparison" },
+      { title: "PixCompare by MarcoB — Pixel-perfect photo comparison" },
       {
         name: "description",
         content: "Compare two to four photos with synchronized zoom and pan.",
@@ -74,7 +74,10 @@ function HomePage() {
         <div className="flex items-center gap-2.5">
           <BrandMark />
           <div className="leading-none">
-            <h1 className="font-heading text-[17px] font-semibold tracking-tight">PixCompare Mb</h1>
+            <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+              <h1 className="font-heading text-[17px] font-semibold tracking-tight">PixCompare</h1>
+              <span className="text-[11px] font-medium italic text-primary">by MarcoB</span>
+            </div>
             <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
               pixel-perfect
             </p>
