@@ -22,11 +22,12 @@ export default function CompareScreen({ photos, onBack }) {
   const initialPhotos = useRef(photos).current;
   const count = initialPhotos.length;
   const canUseSolo = count === 2;
-  // Median Android usa una WebView che non visualizza l'Ultra HDR come Chrome.
-  // Riconosciamo la stringa aggiunta da Median (anche il vecchio GoNative)
-  // e lasciamo sempre attiva la decodifica SDR nell'APK.
+  // Median Android aggiunge di default "median" allo User Agent; riconosciamo
+  // anche le vecchie stringhe MedianAndroid/GoNativeAndroid. Fuori dall'APK,
+  // Chrome mantiene il supporto UHDR, mentre l'APK resta in SDR.
   const isMedianAndroid = typeof navigator !== "undefined" &&
-    /\b(?:MedianAndroid|GoNativeAndroid)\b/i.test(navigator.userAgent);
+    /\bAndroid\b/i.test(navigator.userAgent) &&
+    /\b(?:median|MedianAndroid|GoNativeAndroid)\b/i.test(navigator.userAgent);
   const canUseHdr = count === 2 && !isMedianAndroid;
   const [order, setOrder] = useState(() => initialPhotos.map(({ slot }) => slot));
   const [solo, setSolo] = useState(false);
