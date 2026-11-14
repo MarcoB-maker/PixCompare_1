@@ -84,7 +84,7 @@ function HomePage() {
           </div>
         </div>
         <span className="rounded-full border border-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          v1.0
+          v1.1
         </span>
       </header>
 
