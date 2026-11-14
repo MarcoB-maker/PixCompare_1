@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowDownUp, ArrowLeftRight, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowDownUp, ArrowLeftRight, ArrowRight, HardDriveDownload, Loader2 } from "lucide-react";
 import {
   PHOTO_SLOTS,
+  initializePhotoStorage,
   setCompareCount,
   swapSelectedPhotos,
   usePhotoLibrary,
@@ -11,6 +12,7 @@ import BrandMark from "@/components/home/BrandMark";
 import { useTranslation } from "@/lib/i18n";
 import PhotoSlot from "@/components/home/PhotoSlot";
 import PhotoPicker from "@/components/home/PhotoPicker";
+import LocalStorageSettings from "@/components/home/LocalStorageSettings";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -53,9 +55,12 @@ function getPosition(count, slot, t) {
 
 function HomePage() {
   const { t } = useTranslation();
-  const { selection, compareCount } = usePhotoLibrary();
+  const { selection, compareCount, storage } = usePhotoLibrary();
   const navigate = useNavigate();
   const [pickSlot, setPickSlot] = useState(null);
+  const [showStorage, setShowStorage] = useState(false);
+
+  useEffect(() => { void initializePhotoStorage(); }, []);
   const activeSlots = PHOTO_SLOTS.slice(0, compareCount);
   const ready = activeSlots.every((slot) => Boolean(selection[slot]));
 
@@ -83,9 +88,20 @@ function HomePage() {
             </p>
           </div>
         </div>
-        <span className="rounded-full border border-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          v1.1
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setShowStorage(true)}
+            aria-label={t("localStorageTitle")}
+            title={t("localStorageTitle")}
+            className={`grid h-9 w-9 place-items-center rounded-full border transition active:scale-95 ${storage.error ? "border-amber-400/50 text-amber-300" : storage.enabled ? "border-primary/40 text-primary" : "border-white/10 text-muted-foreground"}`}
+          >
+            <HardDriveDownload className="h-4 w-4" />
+          </button>
+          <span className="rounded-full border border-white/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            v1.1
+          </span>
+        </div>
       </header>
 
       <main className="relative z-10 mx-auto flex w-full min-h-0 max-w-xl flex-1 flex-col gap-2 px-4 py-2">
@@ -154,7 +170,15 @@ function HomePage() {
         </button>
       </footer>
 
+      {!storage.ready && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#08080a]/85" role="status">
+          <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />{t("localStorageBusy")}
+          </span>
+        </div>
+      )}
       {pickSlot && <PhotoPicker slot={pickSlot} onClose={() => setPickSlot(null)} />}
+      {showStorage && <LocalStorageSettings onClose={() => setShowStorage(false)} />}
     </div>
   );
 }

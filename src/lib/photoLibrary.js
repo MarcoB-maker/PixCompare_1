@@ -1,4 +1,10 @@
 import { useSyncExternalStore } from "react";
+import {
+  clearLocalPhotoArchive,
+  readLocalPhotoArchive,
+  writeLocalPhotoArchive,
+  writeLocalPhotoSelection,
+} from "@/lib/localPhotoStorage";
 
 export const PHOTO_SLOTS = ["a", "b", "c", "d"];
 
@@ -6,11 +12,14 @@ const EMPTY = {
   assets: [],
   selection: { a: null, b: null, c: null, d: null },
   compareCount: 2,
+  storage: { enabled: false, ready: false, busy: false, error: null, savedCount: 0 },
 };
 
 let state = EMPTY;
 const listeners = new Set();
 let seq = 0;
+let initialized = null;
+let queue = Promise.resolve();
 
 export function subscribe(listener) {
   listeners.add(listener);
@@ -30,19 +39,61 @@ function commit(next) {
   listeners.forEach((listener) => listener());
 }
 
-// Cambiare il numero di foto non cancella C/D: restano selezionate se si torna a 3/4.
+function updateStorage(patch) {
+  commit({ ...state, storage: { ...state.storage, ...patch } });
+}
+
+function enqueue(work) {
+  const next = queue.catch(() => {}).then(work);
+  queue = next.catch(() => {});
+  return next;
+}
+
+function sessionFromCurrent() {
+  return {
+    compareCount: state.compareCount,
+    selection: Object.fromEntries(
+      PHOTO_SLOTS.map((slot) => [slot, state.selection[slot]?.id || null])
+    ),
+  };
+}
+
+function reportStorageError(error) {
+  console.error("PixCompare local photo storage:", error);
+  updateStorage({ error: error?.name === "QuotaExceededError" ? "quota" : "save", busy: false });
+}
+
+function saveSessionIfEnabled() {
+  if (!state.storage.enabled || !state.storage.ready || state.storage.busy) return;
+  void enqueue(async () => {
+    if (!state.storage.enabled) return;
+    await writeLocalPhotoSelection(sessionFromCurrent());
+  }).catch(reportStorageError);
+}
+
+function saveLibraryIfEnabled() {
+  if (!state.storage.enabled || !state.storage.ready || state.storage.busy) return;
+  void enqueue(async () => {
+    if (!state.storage.enabled) return;
+    await writeLocalPhotoArchive(state.assets, sessionFromCurrent());
+    updateStorage({ savedCount: state.assets.length, error: null });
+  }).catch(reportStorageError);
+}
+
+// Changing photo count doesn't discard C/D: they remain selected.
 export function setCompareCount(value) {
   const count = Number(value);
   if (![2, 3, 4].includes(count) || state.compareCount === count) return;
   commit({ ...state, compareCount: count });
+  saveSessionIfEnabled();
 }
 
 export function selectPhoto(slot, asset) {
   if (!PHOTO_SLOTS.includes(slot)) return;
   commit({ ...state, selection: { ...state.selection, [slot]: asset } });
+  saveSessionIfEnabled();
 }
 
-// Scambia due posizioni senza alterare i File, le anteprime o i metadati.
 export function swapSelectedPhotos(first = "a", second = "b") {
   if (first === second || !PHOTO_SLOTS.includes(first) || !PHOTO_SLOTS.includes(second)) return;
   const selection = state.selection;
@@ -51,6 +102,7 @@ export function swapSelectedPhotos(first = "a", second = "b") {
     ...state,
     selection: { ...selection, [first]: selection[second], [second]: selection[first] },
   });
+  saveSessionIfEnabled();
 }
 
 async function makeThumb(file) {
@@ -73,6 +125,100 @@ async function makeThumb(file) {
   }
 }
 
+// Called on the home screen after mount. Never access IndexedDB during SSR.
+export function initializePhotoStorage() {
+  if (initialized) return initialized;
+  initialized = (async () => {
+    try {
+      const { records, session } = await readLocalPhotoArchive();
+      if (session?.enabled) {
+        const restored = [];
+        for (const record of records) {
+          if (!record?.file) continue;
+          const file = record.file.name
+            ? record.file
+            : new File([record.file], record.name || "photo.jpg", {
+              type: record.file.type || "image/jpeg",
+              lastModified: record.file.lastModified || Date.now(),
+            });
+          const thumb = record.thumb?.src?.startsWith("data:") ? record.thumb : await makeThumb(file);
+          restored.push({
+            id: record.id,
+            key: record.key,
+            name: record.name,
+            folder: record.folder || "",
+            file,
+            thumb,
+          });
+          const n = Number(String(record.id).match(/^asset-(\d+)$/)?.[1]);
+          if (Number.isFinite(n)) seq = Math.max(seq, n);
+        }
+        const merged = [...restored];
+        for (const asset of state.assets) {
+          if (!merged.some((item) => item.key === asset.key)) merged.push(asset);
+        }
+        const byId = new Map(merged.map((asset) => [asset.id, asset]));
+        const selection = { ...state.selection };
+        for (const slot of PHOTO_SLOTS) {
+          if (!selection[slot]) selection[slot] = byId.get(session.selection?.[slot]) || null;
+        }
+        commit({
+          ...state,
+          assets: merged,
+          selection,
+          compareCount: [2, 3, 4].includes(session.compareCount) ? session.compareCount : state.compareCount,
+          storage: { enabled: true, ready: true, busy: false, error: null, savedCount: restored.length },
+        });
+      } else {
+        updateStorage({ ready: true });
+      }
+    } catch (error) {
+      console.error("PixCompare local photo storage initialization:", error);
+      updateStorage({ ready: true, error: "open" });
+    }
+  })();
+  return initialized;
+}
+
+// OFF clears saved copies but leaves current photos available in RAM.
+// ON saves the whole current library, originals included.
+export async function setPhotoStorageEnabled(enabled) {
+  if (!state.storage.ready || state.storage.busy || state.storage.enabled === enabled) return;
+  const wasEnabled = state.storage.enabled;
+  updateStorage({ busy: true, error: null });
+  try {
+    await enqueue(async () => {
+      if (enabled) {
+        await writeLocalPhotoArchive(state.assets, sessionFromCurrent());
+      } else {
+        await clearLocalPhotoArchive();
+      }
+    });
+    updateStorage({
+      enabled,
+      busy: false,
+      error: null,
+      savedCount: enabled ? state.assets.length : 0,
+    });
+    // An import may have completed while the initial snapshot was being stored.
+    if (enabled) saveLibraryIfEnabled();
+  } catch (error) {
+    updateStorage({ enabled: wasEnabled });
+    reportStorageError(error);
+  }
+}
+
+export async function retryPhotoStorage() {
+  if (!state.storage.enabled || state.storage.busy) return;
+  updateStorage({ busy: true, error: null });
+  try {
+    await enqueue(() => writeLocalPhotoArchive(state.assets, sessionFromCurrent()));
+    updateStorage({ busy: false, error: null, savedCount: state.assets.length });
+  } catch (error) {
+    reportStorageError(error);
+  }
+}
+
 export async function importFiles(fileList) {
   const incoming = Array.from(fileList || []).filter(
     (file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif)$/i.test(file.name || "")
@@ -82,7 +228,7 @@ export async function importFiles(fileList) {
   for (const file of incoming) {
     const folder = (file.webkitRelativePath || "").split("/").slice(0, -1).join("/");
     const key = `${folder}/${file.name}/${file.size}`;
-    if (state.assets.some((asset) => asset.key === key)) continue;
+    if (state.assets.some((asset) => asset.key === key) || added.some((asset) => asset.key === key)) continue;
     seq += 1;
     const thumb = await makeThumb(file);
     added.push({ id: `asset-${seq}`, key, file, name: file.name, folder, thumb });
@@ -90,6 +236,7 @@ export async function importFiles(fileList) {
 
   if (added.length > 0) {
     commit({ ...state, assets: [...state.assets, ...added] });
+    saveLibraryIfEnabled();
   }
   return added;
 }
