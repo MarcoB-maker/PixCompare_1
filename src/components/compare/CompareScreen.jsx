@@ -180,7 +180,12 @@ export default function CompareScreen({ photos, onBack }) {
   const toggleSolo = () => {
     if (!canUseSolo) return;
     setNavigationSlot(null);
-    if (!solo) setSoloSlot(order[0]);
+    if (!solo) {
+      setSoloSlot(order[0]);
+      // SOLO usa sempre SDR: il cambio rapido A/B non attiva la decodifica UHDR.
+      // Uscendo da SOLO, UHDR rimane disattivato finché non lo si riattiva.
+      setHdr(false);
+    }
     setSolo((value) => !value);
   };
 
@@ -265,7 +270,7 @@ export default function CompareScreen({ photos, onBack }) {
           >
             SYNC
           </button>
-          {canUseHdr && <HdrToggle hdr={hdr} onToggle={setHdr} />}
+          {canUseHdr && !solo && <HdrToggle hdr={hdr} onToggle={setHdr} />}
           <PaneMenu
             showExif={showExif}
             onShowExifChange={setShowExif}
@@ -318,7 +323,7 @@ export default function CompareScreen({ photos, onBack }) {
                 showGcam={showGcam}
                 showZoom={showZoom}
                 compactInfo={count > 2}
-                hdr={canUseHdr && hdr}
+                hdr={canUseHdr && !solo && hdr}
                 navigation={navigation[slot]}
                 assetId={asset.id}
                 onTextureReady={(view) => handleTextureReady(slot, view)}
