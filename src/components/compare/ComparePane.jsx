@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { decodeTexture } from "@/lib/texture";
 import { IDENTITY } from "@/lib/transform";
+import { capturePhotoFocus, restorePhotoFocus } from "@/lib/viewportNavigation";
 import { useTranslation } from "@/lib/i18n";
 
 const MIN_ZOOM = 1;
@@ -20,6 +21,8 @@ function formatFileSize(bytes, language) {
 
 export default function ComparePane({
   badge, name, file, exif, onChange, onSingleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
+  navigation, assetId, onTextureReady, onBadgeClick, navigationOpen = false, navigationIndex = 0,
+  navigationCount = 0, onPreviousPhoto, onNextPhoto,
 }) {
   const { language, t } = useTranslation();
   const containerRef = useRef(null);
@@ -35,6 +38,12 @@ export default function ComparePane({
   const tapRef = useRef(null);
   const pinchFrameRef = useRef(null);
   const pendingPinchRef = useRef(null);
+  const restoredNavigationToken = useRef(null);
+  // La modifica della sola interfaccia (badge/frecce) non deve ricodificare le foto.
+  const latestNavigation = useRef(navigation);
+  const latestOnTextureReady = useRef(onTextureReady);
+  latestNavigation.current = navigation;
+  latestOnTextureReady.current = onTextureReady;
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
 
@@ -114,7 +123,19 @@ export default function ComparePane({
         if (dimsRef.current) dimsRef.current.textContent = `${texture.width}×${texture.height}`;
         setLoadError("");
         setReady(true);
-        applyView(viewRef.current);
+        let view = viewRef.current;
+        // La nuova fotografia eredita scala e centro dell'immagine precedente.
+        // Si applica una sola volta: passando da SDR a UHDR non si riusa uno
+        // snapshot vecchio che farebbe saltare la posizione corrente.
+        const request = latestNavigation.current;
+        if (request?.assetId === assetId &&
+            request.token !== restoredNavigationToken.current) {
+          view = restorePhotoFocus(request.focus, naturalRef.current, boxRef.current);
+          restoredNavigationToken.current = request.token;
+        }
+        view = clampView(view);
+        applyView(view);
+        latestOnTextureReady.current?.(view);
       })
       .catch((error) => {
         console.error("Errore caricamento immagine:", error);
@@ -134,7 +155,7 @@ export default function ComparePane({
       naturalRef.current = null;
       release();
     };
-  }, [file, hdr, applyView]);
+  }, [file, hdr, applyView, assetId, clampView]);
 
   // Quando il pannello passa da metà schermo a SOLO (o viceversa),
   // conserva il centro della fotografia e impedisce margini fuori immagine.
@@ -175,6 +196,7 @@ export default function ComparePane({
       clamp: clampView,
       get: () => viewRef.current,
       refresh: refreshBounds,
+      captureFocus: () => capturePhotoFocus(viewRef.current, naturalRef.current, boxRef.current),
     };
     return () => {
       apiRef.current = null;
@@ -400,9 +422,49 @@ export default function ComparePane({
         )}
       </div>
 
-      <span className="pointer-events-none absolute left-2.5 top-2.5 rounded-md bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.1em] text-white/70 backdrop-blur-sm">
-        {badge}
-      </span>
+      {onBadgeClick ? (
+        <button
+          type="button"
+          onClick={onBadgeClick}
+          aria-label={t("togglePhotoNavigation", { photo: badge })}
+          aria-expanded={navigationOpen}
+          className={`absolute left-2.5 top-2.5 z-10 min-h-8 min-w-8 rounded-md border px-2 font-mono text-[10px] tracking-[0.1em] backdrop-blur-sm transition active:scale-95 ${
+            navigationOpen
+              ? "border-primary/60 bg-primary/15 text-primary"
+              : "border-white/10 bg-black/55 text-white/80"
+          }`}
+        >
+          {badge}
+        </button>
+      ) : (
+        <span className="pointer-events-none absolute left-2.5 top-2.5 rounded-md bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.1em] text-white/70 backdrop-blur-sm">
+          {badge}
+        </span>
+      )}
+
+      {navigationOpen && navigationCount > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={onPreviousPhoto}
+            aria-label={t("previousPhoto", { photo: badge })}
+            className="absolute left-1.5 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur-sm active:scale-95"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            onClick={onNextPhoto}
+            aria-label={t("nextPhoto", { photo: badge })}
+            className="absolute right-1.5 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur-sm active:scale-95"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+          <span className="pointer-events-none absolute left-1/2 top-2.5 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2 py-1 font-mono text-[10px] tabular-nums text-white/80">
+            {navigationIndex}/{navigationCount}
+          </span>
+        </>
+      )}
 
       {(showExif || showGcam) && (
         <div

@@ -6,7 +6,7 @@ import HdrToggle from "./HdrToggle";
 import AlignmentGuides from "./AlignmentGuides";
 import { readExif } from "@/lib/exif";
 import { useTranslation } from "@/lib/i18n";
-import { swapSelectedPhotos } from "@/lib/photoLibrary";
+import { PHOTO_SLOTS, selectPhoto, swapSelectedPhotos, usePhotoLibrary } from "@/lib/photoLibrary";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -17,6 +17,7 @@ const DEFAULT_GUIDES = [
 
 export default function CompareScreen({ photos, onBack }) {
   const { t } = useTranslation();
+  const { assets } = usePhotoLibrary();
   // Identificativi stabili: nascondere un pannello in SOLO non smonta la foto.
   const initialPhotos = useRef(photos).current;
   const count = initialPhotos.length;
@@ -25,7 +26,15 @@ export default function CompareScreen({ photos, onBack }) {
   const [order, setOrder] = useState(() => initialPhotos.map(({ slot }) => slot));
   const [solo, setSolo] = useState(false);
   const [soloSlot, setSoloSlot] = useState(() => initialPhotos[0]?.slot);
+  const [assetsBySlot, setAssetsBySlot] = useState(() =>
+    Object.fromEntries(initialPhotos.map(({ slot, asset }) => [slot, asset]))
+  );
+  const [navigation, setNavigation] = useState({});
+  const navigationSerial = useRef(0);
+  const [navigationSlot, setNavigationSlot] = useState(null);
+  const [navigationActivity, setNavigationActivity] = useState(0);
   const [exif, setExif] = useState({});
+  const exifCache = useRef(new Map());
   const [synced, setSynced] = useState(true);
   const [showExif, setShowExif] = useState(false);
   const [showGcam, setShowGcam] = useState(false);
@@ -46,7 +55,6 @@ export default function CompareScreen({ photos, onBack }) {
     }));
   };
 
-  const assetsBySlot = Object.fromEntries(initialPhotos.map(({ slot, asset }) => [slot, asset]));
   const views = useRef({});
   const baselines = useRef({});
   const paneRefs = useRef({});
@@ -59,18 +67,69 @@ export default function CompareScreen({ photos, onBack }) {
     if (!baselines.current[slot]) baselines.current[slot] = IDENTITY;
   }
 
+  // Legge i metadati della fotografia realmente visualizzata in ogni slot.
+  // Se cambia la foto con le frecce, EXIF e ADVANCED cambiano assieme a lei.
   useEffect(() => {
     let alive = true;
-    Promise.allSettled(initialPhotos.map(({ asset }) => readExif(asset.file))).then((results) => {
-      if (!alive) return;
-      const entries = initialPhotos.map(({ slot }, index) => [
-        slot,
-        results[index].status === "fulfilled" ? results[index].value : null,
-      ]);
-      setExif(Object.fromEntries(entries));
-    });
+    for (const { slot } of initialPhotos) {
+      const asset = assetsBySlot[slot];
+      if (!asset) continue;
+      if (exifCache.current.has(asset.id)) {
+        const cached = exifCache.current.get(asset.id);
+        setExif((current) => ({ ...current, [slot]: cached }));
+        continue;
+      }
+      readExif(asset.file).then((metadata) => {
+        exifCache.current.set(asset.id, metadata);
+        if (alive) setExif((current) => ({ ...current, [slot]: metadata }));
+      }).catch(() => {
+        exifCache.current.set(asset.id, null);
+        if (alive) setExif((current) => ({ ...current, [slot]: null }));
+      });
+    }
     return () => { alive = false; };
-  }, [initialPhotos]);
+  }, [assetsBySlot, initialPhotos]);
+
+  // Le frecce compaiono toccando A/B/C/D e scompaiono dopo 5 secondi.
+  useEffect(() => {
+    if (!navigationSlot) return undefined;
+    const timer = setTimeout(() => setNavigationSlot(null), 5000);
+    return () => clearTimeout(timer);
+  }, [navigationSlot, navigationActivity]);
+
+  const toggleNavigation = (slot) => {
+    if (assets.length < 2 || (solo && guideMode === "edit")) return;
+    setNavigationSlot((current) => current === slot ? null : slot);
+    setNavigationActivity((value) => value + 1);
+  };
+
+  // Cambia SOLO la foto selezionata. La nuova eredita l'inquadratura corrente
+  // tramite scala e coordinate del centro normalizzate, senza toccare le altre.
+  const navigatePhoto = (slot, direction) => {
+    if (assets.length < 2 || (solo && guideMode === "edit")) return;
+    const currentAsset = assetsBySlot[slot];
+    const currentIndex = assets.findIndex((asset) => asset.id === currentAsset?.id);
+    if (currentIndex < 0) return;
+    const next = assets[(currentIndex + direction + assets.length) % assets.length];
+    if (!next || next.id === currentAsset.id) return;
+
+    const focus = paneRefs.current[slot]?.current?.captureFocus();
+    const token = ++navigationSerial.current;
+    setNavigation((current) => ({ ...current, [slot]: { token, assetId: next.id, focus } }));
+    setAssetsBySlot((current) => ({ ...current, [slot]: next }));
+    setExif((current) => ({ ...current, [slot]: undefined }));
+    // La selezione persistente usa la posizione visibile (non l'identificativo
+    // interno del pannello): così continua a essere corretta dopo INVERTI.
+    const visibleIndex = order.indexOf(slot);
+    if (visibleIndex >= 0) selectPhoto(PHOTO_SLOTS[visibleIndex], next);
+    setNavigationSlot(slot);
+    setNavigationActivity((value) => value + 1);
+  };
+
+  const handleTextureReady = (slot, view) => {
+    views.current[slot] = view;
+    if (syncedRef.current) baselines.current = { ...views.current };
+  };
 
   // Zoom e pan sincronizzati anche quando una fotografia è temporaneamente
   // nascosta in SOLO. Ogni pannello applica i propri limiti ai bordi.
@@ -100,11 +159,13 @@ export default function CompareScreen({ photos, onBack }) {
 
   const switchSoloPhoto = () => {
     if (!solo || !canUseSolo) return;
+    setNavigationSlot(null);
     setSoloSlot((current) => order.find((slot) => slot !== current) || order[0]);
   };
 
   const toggleSolo = () => {
     if (!canUseSolo) return;
+    setNavigationSlot(null);
     if (!solo) setSoloSlot(order[0]);
     setSolo((value) => !value);
   };
@@ -118,6 +179,7 @@ export default function CompareScreen({ photos, onBack }) {
       return;
     }
     // In modalità divisa mantiene lo scambio tradizionale anche nella home.
+    setNavigationSlot(null);
     swapSelectedPhotos(order[0], order[1]);
     setOrder((current) => [current[1], current[0]]);
   };
@@ -242,6 +304,15 @@ export default function CompareScreen({ photos, onBack }) {
                 showZoom={showZoom}
                 compactInfo={count > 2}
                 hdr={canUseHdr && hdr}
+                navigation={navigation[slot]}
+                assetId={asset.id}
+                onTextureReady={(view) => handleTextureReady(slot, view)}
+                onBadgeClick={assets.length > 1 && !(solo && guideMode === "edit") ? () => toggleNavigation(slot) : undefined}
+                navigationOpen={navigationSlot === slot && !(solo && guideMode === "edit")}
+                navigationIndex={assets.findIndex((item) => item.id === asset?.id) + 1}
+                navigationCount={assets.length}
+                onPreviousPhoto={() => navigatePhoto(slot, -1)}
+                onNextPhoto={() => navigatePhoto(slot, 1)}
               />
             </div>
           );
