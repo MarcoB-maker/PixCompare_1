@@ -1,25 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { decodeTexture } from "@/lib/texture";
 import { IDENTITY } from "@/lib/transform";
+import { capturePhotoFocus, restorePhotoFocus } from "@/lib/viewportNavigation";
+import { useTranslation } from "@/lib/i18n";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 40;
+const DOUBLE_TAP_MS = 300;
+const TAP_MOVE_PX = 10;
+const DOUBLE_TAP_DISTANCE_PX = 28;
 
 function zoomLabel(view) {
   return `${Math.round(view.scale * 100)}%`;
 }
 
-function formatFileSize(bytes) {
-  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return "n/d";
+function formatFileSize(bytes, language) {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return language === "it" ? "n/d" : "n/a";
   const mb = bytes / (1024 * 1024);
-  if (mb >= 1) return `${mb.toFixed(1).replace(".", ",")} MB`;
+  if (mb >= 1) return `${mb.toFixed(1).replace(".", language === "it" ? "," : ".")} MB`;
   return `${Math.round(bytes / 1024)} KB`;
 }
 
 export default function ComparePane({
-  badge, name, file, exif, onChange, showExif, showGcam, showZoom, hdr, apiRef,
+  badge, name, file, exif, onChange, onSingleTap, onDoubleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
+  navigation, assetId, onTextureReady, onBadgeClick, navigationOpen = false, navigationIndex = 0,
+  navigationCount = 0, onPreviousPhoto, onNextPhoto,
 }) {
+  const { language, t } = useTranslation();
   const containerRef = useRef(null);
   const hostRef = useRef(null);
   const textureRef = useRef(null);
@@ -30,8 +38,16 @@ export default function ComparePane({
   const viewRef = useRef(IDENTITY);
   const pointers = useRef(new Map());
   const gestureRef = useRef(null);
+  const tapRef = useRef(null);
+  const pendingTapRef = useRef(null);
   const pinchFrameRef = useRef(null);
   const pendingPinchRef = useRef(null);
+  const restoredNavigationToken = useRef(null);
+  // La modifica della sola interfaccia (badge/frecce) non deve ricodificare le foto.
+  const latestNavigation = useRef(navigation);
+  const latestOnTextureReady = useRef(onTextureReady);
+  latestNavigation.current = navigation;
+  latestOnTextureReady.current = onTextureReady;
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
 
@@ -111,7 +127,19 @@ export default function ComparePane({
         if (dimsRef.current) dimsRef.current.textContent = `${texture.width}×${texture.height}`;
         setLoadError("");
         setReady(true);
-        applyView(viewRef.current);
+        let view = viewRef.current;
+        // La nuova fotografia eredita scala e centro dell'immagine precedente.
+        // Si applica una sola volta: passando da SDR a UHDR non si riusa uno
+        // snapshot vecchio che farebbe saltare la posizione corrente.
+        const request = latestNavigation.current;
+        if (request?.assetId === assetId &&
+            request.token !== restoredNavigationToken.current) {
+          view = restorePhotoFocus(request.focus, naturalRef.current, boxRef.current);
+          restoredNavigationToken.current = request.token;
+        }
+        view = clampView(view);
+        applyView(view);
+        latestOnTextureReady.current?.(view);
       })
       .catch((error) => {
         console.error("Errore caricamento immagine:", error);
@@ -131,22 +159,38 @@ export default function ComparePane({
       naturalRef.current = null;
       release();
     };
-  }, [file, hdr, applyView]);
+  }, [file, hdr, applyView, assetId, clampView]);
 
-  // Keep the box size and the transform in sync with layout changes (rotation, split resize).
+  // Quando il pannello passa da metà schermo a SOLO (o viceversa),
+  // conserva il centro della fotografia e impedisce margini fuori immagine.
+  const refreshBounds = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const nextBox = { w: el.clientWidth, h: el.clientHeight };
+    const previousBox = boxRef.current;
+    const nat = naturalRef.current;
+    let nextView = viewRef.current;
+    if (nat && nextBox.w && nextBox.h && previousBox.w && previousBox.h) {
+      const oldFit = Math.min(previousBox.w / nat.w, previousBox.h / nat.h);
+      const newFit = Math.min(nextBox.w / nat.w, nextBox.h / nat.h);
+      if (oldFit > 0 && Number.isFinite(newFit)) {
+        const ratio = newFit / oldFit;
+        nextView = { ...nextView, x: nextView.x * ratio, y: nextView.y * ratio };
+      }
+    }
+    boxRef.current = nextBox;
+    applyView(clampView(nextView));
+  }, [applyView, clampView]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
-    const measure = () => {
-      boxRef.current = { w: el.clientWidth, h: el.clientHeight };
-      applyView(viewRef.current);
-    };
-    measure();
+    refreshBounds();
     if (typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(refreshBounds);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [applyView]);
+  }, [refreshBounds]);
 
   // Exposed to the parent so it can push a transform onto this pane without a re-render.
   useEffect(() => {
@@ -155,11 +199,13 @@ export default function ComparePane({
       apply: applyView,
       clamp: clampView,
       get: () => viewRef.current,
+      refresh: refreshBounds,
+      captureFocus: () => capturePhotoFocus(viewRef.current, naturalRef.current, boxRef.current),
     };
     return () => {
       apiRef.current = null;
     };
-  }, [apiRef, applyView, clampView]);
+  }, [apiRef, applyView, clampView, refreshBounds]);
 
   const push = useCallback(
     (next) => {
@@ -241,9 +287,30 @@ export default function ComparePane({
     }
   }, []);
 
+  // Distingue il tap singolo di SOLO dal doppio tap senza usare il doppio
+  // click nativo del browser (che potrebbe interferire con il pinch).
+  const clearPendingTap = () => {
+    if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+      clearTimeout(pendingTapRef.current.timer);
+    }
+    pendingTapRef.current = null;
+  };
+
   const handlePointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     flushPendingPinch();
+    if (pointers.current.size === 0) {
+      tapRef.current = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        time: performance.now(),
+      };
+    } else {
+      // Un secondo dito annulla ogni possibile tap: questo e' un pinch.
+      tapRef.current = null;
+      clearPendingTap();
+    }
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -255,6 +322,12 @@ export default function ComparePane({
 
   const handlePointerMove = (event) => {
     if (!pointers.current.has(event.pointerId)) return;
+    if (tapRef.current?.id === event.pointerId &&
+        Math.hypot(event.clientX - tapRef.current.x, event.clientY - tapRef.current.y) > TAP_MOVE_PX) {
+      tapRef.current = null;
+      // Se l'utente inizia a trascinare, non cambiare foto per un tap precedente.
+      clearPendingTap();
+    }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const current = gestureRef.current;
     if (!current) return;
@@ -289,10 +362,73 @@ export default function ComparePane({
 
   const handlePointerUp = (event) => {
     flushPendingPinch();
+    const candidate = tapRef.current;
+    const validTap = event.type === "pointerup" && candidate &&
+      candidate.id === event.pointerId && pointers.current.size === 1 &&
+      performance.now() - candidate.time < 350 &&
+      Math.hypot(event.clientX - candidate.x, event.clientY - candidate.y) <= TAP_MOVE_PX;
+    tapRef.current = null;
     pointers.current.delete(event.pointerId);
     if (pointers.current.size === 0) gestureRef.current = null;
     else beginGesture();
+
+    if (!validTap) {
+      clearPendingTap();
+      return;
+    }
+
+    const now = performance.now();
+    const prior = pendingTapRef.current;
+    if (prior && now - prior.time <= DOUBLE_TAP_MS &&
+        Math.hypot(event.clientX - prior.x, event.clientY - prior.y) <= DOUBLE_TAP_DISTANCE_PX) {
+      clearPendingTap();
+      // A 100% il doppio tap non modifica l'immagine; sopra il 100%
+      // ripristina lo zoom senza eseguire il cambio A/B di SOLO.
+      if (viewRef.current.scale > MIN_ZOOM + 0.001) onDoubleTap?.();
+      return;
+    }
+
+    // Se due tap sono molto distanti, il primo e' un tap singolo.
+    if (prior) {
+      clearPendingTap();
+      prior.onSingleTap?.();
+    }
+    const pending = {
+      time: now,
+      x: event.clientX,
+      y: event.clientY,
+      onSingleTap,
+      timer: null,
+    };
+    pending.timer = setTimeout(() => {
+      if (pendingTapRef.current !== pending) return;
+      pendingTapRef.current = null;
+      pending.onSingleTap?.();
+    }, DOUBLE_TAP_MS);
+    pendingTapRef.current = pending;
   };
+
+  // Se il riquadro SOLO non e' piu' quello visibile, annulla un eventuale
+  // tap singolo in attesa, evitando un cambio A/B involontario.
+  const singleTapEnabled = Boolean(onSingleTap);
+  useEffect(() => {
+    if (singleTapEnabled) return;
+    if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+      clearTimeout(pendingTapRef.current.timer);
+    }
+    pendingTapRef.current = null;
+    tapRef.current = null;
+  }, [singleTapEnabled]);
+
+  // Evita tap pendenti dopo smontaggio o cambio della modalita' SOLO.
+  useEffect(() => {
+    return () => {
+      if (pendingTapRef.current?.timer !== null && pendingTapRef.current?.timer !== undefined) {
+        clearTimeout(pendingTapRef.current.timer);
+      }
+      pendingTapRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -351,40 +487,87 @@ export default function ComparePane({
         )}
         {loadError && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-white/70">
-            <p>Impossibile caricare l'immagine</p>
+            <p>{t("imageLoadError")}</p>
             <p className="mt-2 max-w-full break-words text-[11px] text-white/50">{loadError}</p>
           </div>
         )}
       </div>
 
-      <span className="pointer-events-none absolute left-2.5 top-2.5 rounded-md bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.1em] text-white/70 backdrop-blur-sm">
-        {badge}
-      </span>
+      {onBadgeClick ? (
+        <button
+          type="button"
+          onClick={onBadgeClick}
+          aria-label={t("togglePhotoNavigation", { photo: badge })}
+          aria-expanded={navigationOpen}
+          className={`absolute left-2.5 top-2.5 z-10 min-h-8 min-w-8 rounded-md border px-2 font-mono text-[10px] tracking-[0.1em] backdrop-blur-sm transition active:scale-95 ${
+            navigationOpen
+              ? "border-primary/60 bg-primary/15 text-primary"
+              : "border-white/10 bg-black/55 text-white/80"
+          }`}
+        >
+          {badge}
+        </button>
+      ) : (
+        <span className="pointer-events-none absolute left-2.5 top-2.5 rounded-md bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.1em] text-white/70 backdrop-blur-sm">
+          {badge}
+        </span>
+      )}
+
+      {navigationOpen && navigationCount > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={onPreviousPhoto}
+            aria-label={t("previousPhoto", { photo: badge })}
+            className="absolute left-1.5 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur-sm active:scale-95"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            onClick={onNextPhoto}
+            aria-label={t("nextPhoto", { photo: badge })}
+            className="absolute right-1.5 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur-sm active:scale-95"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+          <span className="pointer-events-none absolute left-1/2 top-2.5 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2 py-1 font-mono text-[10px] tabular-nums text-white/80">
+            {navigationIndex}/{navigationCount}
+          </span>
+        </>
+      )}
 
       {(showExif || showGcam) && (
-        <div className="pointer-events-none absolute bottom-2.5 right-2.5 max-w-[75%] rounded-lg bg-black/55 px-2 py-1.5 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm">
+        <div
+          className={
+            compactInfo
+              ? "pointer-events-none absolute bottom-8 right-1.5 max-w-[90%] rounded-md bg-black/55 px-1.5 py-1 font-mono text-[9px] leading-[1.3] text-white/85 backdrop-blur-sm"
+              : "pointer-events-none absolute bottom-2.5 right-2.5 max-w-[75%] rounded-lg bg-black/55 px-2 py-1.5 font-mono text-[10px] leading-[1.35] text-white/85 backdrop-blur-sm"
+          }
+          style={compactInfo ? { overflowWrap: "anywhere" } : undefined}
+        >
           {showExif && (
             <div>
-              <p className="truncate text-white">{name}</p>
-              <p className="truncate">
+              <p className={compactInfo ? "text-white" : "truncate text-white"}>{name}</p>
+              <p className={compactInfo ? "break-words" : "truncate"}>
                 <span ref={bindDims}>—</span> px
                 <span className="text-white/35"> · </span>
-                {formatFileSize(file?.size)}
+                {formatFileSize(file?.size, language)}
               </p>
-              <p className="truncate">
-                {exif === undefined ? "…" : exif?.exposure || "n/d"}
+              <p className={compactInfo ? "break-words" : "truncate"}>
+                {exif === undefined ? "…" : exif?.exposure || t("na")}
                 <span className="text-white/35"> · </span>
-                ISO {exif === undefined ? "…" : exif?.iso || "n/d"}
+                ISO {exif === undefined ? "…" : exif?.iso || t("na")}
               </p>
             </div>
           )}
           {showGcam && (
             <div className={showExif ? "mt-1 border-t border-white/20 pt-1" : ""}>
-              <p className="truncate">
-                <span className="text-primary">GCAM </span>
-                {exif === undefined ? "…" : exif?.frameCount != null ? `${exif.frameCount} frame` : "Frame n/d"}
+              <p className={compactInfo ? "break-words" : "truncate"}>
+                <span className="text-primary">ADVANCED </span>
+                {exif === undefined ? "…" : exif?.frameCount != null ? t("frameCount", { count: exif.frameCount }) : t("frameUnavailable")}
                 <span className="text-white/35"> · </span>
-                {exif === undefined ? "…" : exif?.gcamVersion || "Versione n/d"}
+                {exif === undefined ? "…" : exif?.gcamVersion || t("versionUnavailable")}
               </p>
               <p
                 className="break-words"
@@ -394,7 +577,7 @@ export default function ComparePane({
                   "…"
                 ) : (
                   <>
-                    {exif?.software || exif?.copyright || "Software n/d"}
+                    {exif?.software || exif?.copyright || t("softwareUnavailable")}
                     {exif?.software && exif?.copyright && (
                       <>
                         <span className="text-white/35"> · </span>
@@ -404,8 +587,8 @@ export default function ComparePane({
                   </>
                 )}
               </p>
-              <p className="truncate" title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
-                {exif === undefined ? "…" : exif?.modelName || exif?.model || "Modello n/d"}
+              <p className={compactInfo ? "break-words" : "truncate"} title={exif?.model ? t("exifCode", { code: exif.model }) : undefined}>
+                {exif === undefined ? "…" : exif?.modelName || exif?.model || t("modelUnavailable")}
               </p>
             </div>
           )}
@@ -413,7 +596,7 @@ export default function ComparePane({
       )}
       {showZoom && (
         <div className="pointer-events-none absolute bottom-2.5 left-2.5 font-mono text-[10px] leading-[1.35] text-primary">
-          Zoom: <span ref={bindZoom}>100%</span>
+          {t("zoom")}: <span ref={bindZoom}>100%</span>
         </div>
       )}
     </div>
