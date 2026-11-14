@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
       { title: "PixCompare Mb" },
-      { name: "description", content: "Confronta due foto pixel per pixel, con zoom e pan sincronizzati." },
+      { name: "description", content: "Compare photos pixel by pixel with synchronized zoom and pan." },
       { name: "theme-color", content: "#08080a" },
     ],
     // No icon link: the platform adds the app's logo when serving.
@@ -43,7 +43,7 @@ function RootComponent() {
 // The document. There is no index.html: the server renders <html> from here.
 function RootDocument({ children }) {
   return (
-    <html lang="it">
+    <html lang="en">
       <head>
         <HeadContent />
       </head>

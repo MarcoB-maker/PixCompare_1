@@ -1,4 +1,5 @@
 import { Check, MoreVertical } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,25 +39,26 @@ export default function PaneMenu({
   guidesVisible = false,
   onGuidesChange,
 }) {
+  const { t } = useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Impostazioni confronto"
+          aria-label={t("compareSettings")}
           className="grid h-9 w-9 place-items-center rounded-full text-white/80 transition hover:bg-white/10 active:scale-95"
         >
           <MoreVertical className="h-5 w-5" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60 border-white/10 bg-[#111113] p-1 text-white">
-        <ToggleRow label="Mostra EXIF" active={showExif} onToggle={onShowExifChange} />
-        <ToggleRow label="Mostra GCAM" active={showGcam} onToggle={onShowGcamChange} />
-        <ToggleRow label="Mostra ZOOM" active={showZoom} onToggle={onShowZoomChange} />
+        <ToggleRow label={t("showExif")} active={showExif} onToggle={onShowExifChange} />
+        <ToggleRow label={t("showAdvanced")} active={showGcam} onToggle={onShowGcamChange} />
+        <ToggleRow label={t("showZoom")} active={showZoom} onToggle={onShowZoomChange} />
         {allowGuides && (
           <>
             <div className="my-1 border-t border-white/15" />
-            <ToggleRow label="Linee guida" active={guidesVisible} onToggle={onGuidesChange} />
+            <ToggleRow label={t("guides")} active={guidesVisible} onToggle={onGuidesChange} />
           </>
         )}
       </DropdownMenuContent>

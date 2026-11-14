@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { decodeTexture } from "@/lib/texture";
 import { IDENTITY } from "@/lib/transform";
+import { useTranslation } from "@/lib/i18n";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 40;
@@ -10,16 +11,17 @@ function zoomLabel(view) {
   return `${Math.round(view.scale * 100)}%`;
 }
 
-function formatFileSize(bytes) {
-  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return "n/d";
+function formatFileSize(bytes, language) {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return language === "it" ? "n/d" : "n/a";
   const mb = bytes / (1024 * 1024);
-  if (mb >= 1) return `${mb.toFixed(1).replace(".", ",")} MB`;
+  if (mb >= 1) return `${mb.toFixed(1).replace(".", language === "it" ? "," : ".")} MB`;
   return `${Math.round(bytes / 1024)} KB`;
 }
 
 export default function ComparePane({
   badge, name, file, exif, onChange, onSingleTap, showExif, showGcam, showZoom, hdr, apiRef, compactInfo = false,
 }) {
+  const { language, t } = useTranslation();
   const containerRef = useRef(null);
   const hostRef = useRef(null);
   const textureRef = useRef(null);
@@ -392,7 +394,7 @@ export default function ComparePane({
         )}
         {loadError && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-white/70">
-            <p>Impossibile caricare l'immagine</p>
+            <p>{t("imageLoadError")}</p>
             <p className="mt-2 max-w-full break-words text-[11px] text-white/50">{loadError}</p>
           </div>
         )}
@@ -417,22 +419,22 @@ export default function ComparePane({
               <p className={compactInfo ? "break-words" : "truncate"}>
                 <span ref={bindDims}>—</span> px
                 <span className="text-white/35"> · </span>
-                {formatFileSize(file?.size)}
+                {formatFileSize(file?.size, language)}
               </p>
               <p className={compactInfo ? "break-words" : "truncate"}>
-                {exif === undefined ? "…" : exif?.exposure || "n/d"}
+                {exif === undefined ? "…" : exif?.exposure || t("na")}
                 <span className="text-white/35"> · </span>
-                ISO {exif === undefined ? "…" : exif?.iso || "n/d"}
+                ISO {exif === undefined ? "…" : exif?.iso || t("na")}
               </p>
             </div>
           )}
           {showGcam && (
             <div className={showExif ? "mt-1 border-t border-white/20 pt-1" : ""}>
               <p className={compactInfo ? "break-words" : "truncate"}>
-                <span className="text-primary">GCAM </span>
-                {exif === undefined ? "…" : exif?.frameCount != null ? `${exif.frameCount} frame` : "Frame n/d"}
+                <span className="text-primary">ADVANCED </span>
+                {exif === undefined ? "…" : exif?.frameCount != null ? t("frameCount", { count: exif.frameCount }) : t("frameUnavailable")}
                 <span className="text-white/35"> · </span>
-                {exif === undefined ? "…" : exif?.gcamVersion || "Versione n/d"}
+                {exif === undefined ? "…" : exif?.gcamVersion || t("versionUnavailable")}
               </p>
               <p
                 className="break-words"
@@ -442,7 +444,7 @@ export default function ComparePane({
                   "…"
                 ) : (
                   <>
-                    {exif?.software || exif?.copyright || "Software n/d"}
+                    {exif?.software || exif?.copyright || t("softwareUnavailable")}
                     {exif?.software && exif?.copyright && (
                       <>
                         <span className="text-white/35"> · </span>
@@ -452,8 +454,8 @@ export default function ComparePane({
                   </>
                 )}
               </p>
-              <p className={compactInfo ? "break-words" : "truncate"} title={exif?.model ? `Codice EXIF: ${exif.model}` : undefined}>
-                {exif === undefined ? "…" : exif?.modelName || exif?.model || "Modello n/d"}
+              <p className={compactInfo ? "break-words" : "truncate"} title={exif?.model ? t("exifCode", { code: exif.model }) : undefined}>
+                {exif === undefined ? "…" : exif?.modelName || exif?.model || t("modelUnavailable")}
               </p>
             </div>
           )}
@@ -461,7 +463,7 @@ export default function ComparePane({
       )}
       {showZoom && (
         <div className="pointer-events-none absolute bottom-2.5 left-2.5 font-mono text-[10px] leading-[1.35] text-primary">
-          Zoom: <span ref={bindZoom}>100%</span>
+          {t("zoom")}: <span ref={bindZoom}>100%</span>
         </div>
       )}
     </div>

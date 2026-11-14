@@ -5,7 +5,7 @@ import CompareScreen from "@/components/compare/CompareScreen";
 
 export const Route = createFileRoute("/compare")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Confronto — PixCompare Mb" }] }),
+  head: () => ({ meta: [{ title: "Compare — PixCompare Mb" }] }),
   component: CompareRoute,
 });
 

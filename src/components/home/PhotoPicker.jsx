@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, FolderOpen, ImagePlus, Loader2, X } from "lucide-react";
 import { importFiles, selectPhoto, usePhotoLibrary } from "@/lib/photoLibrary";
+import { useTranslation } from "@/lib/i18n";
 
-const SLOT_LABEL = {
-  a: "Foto A", b: "Foto B", c: "Foto C", d: "Foto D",
-};
 
 export default function PhotoPicker({ slot, onClose }) {
+  const { t } = useTranslation();
   const { assets, selection } = usePhotoLibrary();
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,16 +77,16 @@ export default function PhotoPicker({ slot, onClose }) {
       <header className="flex items-start justify-between gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
-            {SLOT_LABEL[slot]}
+            {t("photo")} {slot.toUpperCase()}
           </p>
           <h2 className="mt-1 truncate font-heading text-lg font-semibold tracking-tight">
-            Scegli una foto
+            {t("pickPhoto")}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Chiudi"
+          aria-label={t("close")}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 text-white/70 transition active:scale-95"
         >
           <X className="h-5 w-5" />
@@ -100,14 +99,14 @@ export default function PhotoPicker({ slot, onClose }) {
           onClick={() => fileRef.current && fileRef.current.click()}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-[13px] font-medium transition active:scale-[0.99]"
         >
-          <ImagePlus className="h-4 w-4 text-primary" /> Da file
+          <ImagePlus className="h-4 w-4 text-primary" /> {t("fromFiles")}
         </button>
         <button
           type="button"
           onClick={() => dirRef.current && dirRef.current.click()}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-[13px] font-medium transition active:scale-[0.99]"
         >
-          <FolderOpen className="h-4 w-4 text-primary" /> Da cartella
+          <FolderOpen className="h-4 w-4 text-primary" /> {t("fromFolder")}
         </button>
       </div>
 
@@ -120,7 +119,7 @@ export default function PhotoPicker({ slot, onClose }) {
               segments.length === 0 ? "bg-white/10 text-foreground" : "text-muted-foreground"
             }`}
           >
-            Dispositivo
+            {t("device")}
           </button>
           {segments.map((segment, index) => {
             const target = segments.slice(0, index + 1).join("/");
@@ -148,8 +147,7 @@ export default function PhotoPicker({ slot, onClose }) {
           <div className="mt-14 flex flex-col items-center gap-3 px-6 text-center text-muted-foreground">
             <FolderOpen className="h-8 w-8" strokeWidth={1.3} />
             <p className="max-w-[17rem] text-[13px] leading-relaxed">
-              Nessuna foto qui. Importa immagini o un&apos;intera cartella per sfogliarne il
-              contenuto.
+              {t("emptyLibrary")}
             </p>
           </div>
         ) : (
@@ -166,7 +164,7 @@ export default function PhotoPicker({ slot, onClose }) {
                   {folder.name}
                 </span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  {folder.count} foto
+                  {folder.count} {t("photos")}
                 </span>
               </button>
             ))}
@@ -209,7 +207,7 @@ export default function PhotoPicker({ slot, onClose }) {
       {busy && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/60">
           <span className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[12px]">
-            <Loader2 className="h-4 w-4 animate-spin" /> Importazione…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("importing")}
           </span>
         </div>
       )}

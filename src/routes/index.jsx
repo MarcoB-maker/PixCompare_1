@@ -8,16 +8,17 @@ import {
   usePhotoLibrary,
 } from "@/lib/photoLibrary";
 import BrandMark from "@/components/home/BrandMark";
+import { useTranslation } from "@/lib/i18n";
 import PhotoSlot from "@/components/home/PhotoSlot";
 import PhotoPicker from "@/components/home/PhotoPicker";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "PixCompare Mb — confronto foto pixel-perfect" },
+      { title: "PixCompare Mb — Pixel-perfect photo comparison" },
       {
         name: "description",
-        content: "Confronta da due a quattro fotografie con zoom e spostamento sincronizzati.",
+        content: "Compare two to four photos with synchronized zoom and pan.",
       },
     ],
   }),
@@ -42,15 +43,16 @@ const SWAPS = {
   ],
 };
 
-function getPosition(count, slot) {
+function getPosition(count, slot, t) {
   if (count === 4) {
-    return { a: "alto sx", b: "alto dx", c: "basso sx", d: "basso dx" }[slot];
+    return { a: t("topLeft"), b: t("topRight"), c: t("bottomLeft"), d: t("bottomRight") }[slot];
   }
-  if (count === 3) return { a: "sopra", b: "centro", c: "sotto" }[slot];
-  return { a: "sopra", b: "sotto" }[slot];
+  if (count === 3) return { a: t("top"), b: t("middle"), c: t("bottom") }[slot];
+  return { a: t("top"), b: t("bottom") }[slot];
 }
 
 function HomePage() {
+  const { t } = useTranslation();
   const { selection, compareCount } = usePhotoLibrary();
   const navigate = useNavigate();
   const [pickSlot, setPickSlot] = useState(null);
@@ -84,7 +86,7 @@ function HomePage() {
       </header>
 
       <main className="relative z-10 mx-auto flex w-full min-h-0 max-w-xl flex-1 flex-col gap-2 px-4 py-2">
-        <div className="flex h-9 shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1" role="group" aria-label="Numero di fotografie da confrontare">
+        <div className="flex h-9 shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1" role="group" aria-label={t("comparePhotosAria")}>
           {[2, 3, 4].map((count) => (
             <button
               key={count}
@@ -97,7 +99,7 @@ function HomePage() {
                   : "text-muted-foreground hover:bg-white/10"
               }`}
             >
-              {count} foto
+              {count} {t("photos")}
             </button>
           ))}
         </div>
@@ -112,8 +114,8 @@ function HomePage() {
           {activeSlots.map((slot) => (
             <PhotoSlot
               key={slot}
-              label={`Foto ${LETTER[slot]}`}
-              position={getPosition(compareCount, slot)}
+              label={`${t("photo")} ${LETTER[slot]}`}
+              position={getPosition(compareCount, slot, t)}
               asset={selection[slot]}
               compact={compareCount === 4}
               onSelect={() => setPickSlot(slot)}
@@ -126,8 +128,8 @@ function HomePage() {
               type="button"
               disabled={!selection[a] || !selection[b]}
               onClick={() => swapSelectedPhotos(a, b)}
-              title={`Scambia foto ${LETTER[a]} e ${LETTER[b]}`}
-              aria-label={`Inverti foto ${LETTER[a]} e ${LETTER[b]}`}
+              title={t("swapPhotos", { a: LETTER[a], b: LETTER[b] })}
+              aria-label={t("invertPhotos", { a: LETTER[a], b: LETTER[b] })}
               className="absolute z-10 grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-[#151719]/90 text-primary shadow-lg transition active:scale-95 disabled:opacity-35"
               style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" }}
             >
@@ -144,7 +146,7 @@ function HomePage() {
           onClick={() => navigate({ to: "/compare" })}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-[15px] font-semibold text-primary-foreground transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30"
         >
-          Confronta
+          {t("compare")}
           <ArrowRight className="h-4 w-4 shrink-0" />
         </button>
       </footer>

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { EyeOff, Move, Pin } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 const CYAN = "#00DFFF";
 const MIN_POSITION = 0.045;
@@ -10,9 +11,9 @@ function restrict(value) {
 }
 
 const MODES = [
-  { id: "edit", label: "REGOLA", Icon: Move },
-  { id: "fixed", label: "FISSA", Icon: Pin },
-  { id: "hidden", label: "NASCONDI", Icon: EyeOff },
+  { id: "edit", labelKey: "adjust", Icon: Move },
+  { id: "fixed", labelKey: "lock", Icon: Pin },
+  { id: "hidden", labelKey: "hide", Icon: EyeOff },
 ];
 
 /**
@@ -21,6 +22,7 @@ const MODES = [
  * Questa componente non modifica mai il file o la trasformazione delle foto.
  */
 export default function AlignmentGuides({ guides, mode, onGuideChange, onModeChange }) {
+  const { t } = useTranslation();
   const planeRef = useRef(null);
   const draggingRef = useRef(null);
   const editing = mode === "edit";
@@ -75,7 +77,7 @@ export default function AlignmentGuides({ guides, mode, onGuideChange, onModeCha
         className="absolute inset-0 z-20 overflow-hidden"
         style={{ pointerEvents: editing ? "auto" : "none", touchAction: "none" }}
         onPointerDown={editing ? (event) => event.preventDefault() : undefined}
-        aria-label="Linee guida per l'allineamento delle fotografie"
+        aria-label={t("alignGuides")}
       >
         {guides.map(({ x, y }, index) => (
           <div key={index}>
@@ -84,7 +86,7 @@ export default function AlignmentGuides({ guides, mode, onGuideChange, onModeCha
               className="absolute inset-y-0 flex w-7 -translate-x-1/2 items-center justify-center touch-none"
               style={{ left: `${x * 100}%`, cursor: editing ? "ew-resize" : "default", pointerEvents: editing ? "auto" : "none" }}
               role={editing ? "slider" : undefined}
-              aria-label={editing ? `Linea verticale ${index + 1}` : undefined}
+              aria-label={editing ? t("verticalGuide", { number: index + 1 }) : undefined}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(x * 100)}
@@ -101,7 +103,7 @@ export default function AlignmentGuides({ guides, mode, onGuideChange, onModeCha
               className="absolute inset-x-0 flex h-7 -translate-y-1/2 items-center justify-center touch-none"
               style={{ top: `${y * 100}%`, cursor: editing ? "ns-resize" : "default", pointerEvents: editing ? "auto" : "none" }}
               role={editing ? "slider" : undefined}
-              aria-label={editing ? `Linea orizzontale ${index + 1}` : undefined}
+              aria-label={editing ? t("horizontalGuide", { number: index + 1 }) : undefined}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(y * 100)}
@@ -118,7 +120,7 @@ export default function AlignmentGuides({ guides, mode, onGuideChange, onModeCha
               className="absolute z-10 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
               style={{ left: `${x * 100}%`, top: `${y * 100}%`, cursor: editing ? "move" : "default", pointerEvents: editing ? "auto" : "none" }}
               role={editing ? "slider" : undefined}
-              aria-label={editing ? `Punto di incrocio ${index + 1}` : undefined}
+              aria-label={editing ? t("crossingPoint", { number: index + 1 }) : undefined}
               {...(editing ? dragHandlers(index, "both") : {})}
             >
               <span
@@ -134,20 +136,20 @@ export default function AlignmentGuides({ guides, mode, onGuideChange, onModeCha
 
       {/* Barra indipendente dai gesti sul piano. Rimane anche in FISSA. */}
       <div className="pointer-events-auto absolute left-1/2 top-2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-white/15 bg-[#11151a]/90 p-1 shadow-xl backdrop-blur-sm">
-        {MODES.map(({ id, label, Icon }) => (
+        {MODES.map(({ id, labelKey, Icon }) => (
           <button
             key={id}
             type="button"
             aria-pressed={mode === id}
-            aria-label={id === "edit" ? "Regola le linee guida" : id === "fixed" ? "Fissa le linee guida" : "Nascondi le linee guida"}
-            title={id === "edit" ? "Sposta soltanto le guide" : id === "fixed" ? "Guide ferme, foto utilizzabili" : "Nascondi mantenendo le posizioni"}
+            aria-label={id === "edit" ? t("adjustGuides") : id === "fixed" ? t("lockGuides") : t("hideGuides")}
+            title={id === "edit" ? t("moveGuidesOnly") : id === "fixed" ? t("fixedGuidesTitle") : t("hideGuidesTitle")}
             onClick={() => onModeChange(id)}
             className={`flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 font-mono text-[10px] font-semibold tracking-wide transition active:scale-95 ${
               mode === id ? "bg-cyan-400/15 text-[#5DEEFF] ring-1 ring-inset ring-[#00DFFF]/65" : "text-white/75 hover:bg-white/10"
             }`}
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>

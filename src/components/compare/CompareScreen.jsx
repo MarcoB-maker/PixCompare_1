@@ -5,6 +5,7 @@ import PaneMenu from "./PaneMenu";
 import HdrToggle from "./HdrToggle";
 import AlignmentGuides from "./AlignmentGuides";
 import { readExif } from "@/lib/exif";
+import { useTranslation } from "@/lib/i18n";
 import { swapSelectedPhotos } from "@/lib/photoLibrary";
 import { IDENTITY, compose, extractDelta } from "@/lib/transform";
 
@@ -15,6 +16,7 @@ const DEFAULT_GUIDES = [
 ];
 
 export default function CompareScreen({ photos, onBack }) {
+  const { t } = useTranslation();
   // Identificativi stabili: nascondere un pannello in SOLO non smonta la foto.
   const initialPhotos = useRef(photos).current;
   const count = initialPhotos.length;
@@ -142,7 +144,7 @@ export default function CompareScreen({ photos, onBack }) {
         <button
           type="button"
           onClick={onBack}
-          aria-label="Torna alla selezione"
+          aria-label={t("backToSelection")}
           className="grid h-9 w-9 place-items-center rounded-full text-white/80 transition hover:bg-white/10 active:scale-95"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -153,8 +155,8 @@ export default function CompareScreen({ photos, onBack }) {
               type="button"
               onClick={toggleSolo}
               aria-pressed={solo}
-              aria-label={solo ? "Disattiva SOLO e mostra due foto" : "Attiva SOLO e mostra una foto per volta"}
-              title={solo ? "Mostra A e B insieme" : "Mostra una foto per volta"}
+              aria-label={solo ? t("soloOff") : t("soloOn")}
+              title={solo ? t("showBoth") : t("showOne")}
               className={`h-9 rounded-full px-2 font-mono text-[10px] uppercase tracking-[0.1em] transition active:scale-95 ${
                 solo ? "bg-primary/15 text-primary" : "text-white/75 hover:bg-white/10"
               }`}
@@ -167,20 +169,20 @@ export default function CompareScreen({ photos, onBack }) {
               type="button"
               onClick={invertPhotos}
               disabled={solo && guideMode === "edit"}
-              aria-label={solo ? "Mostra l'altra fotografia" : "Inverti le fotografie A e B"}
-              title={solo ? "Passa alla foto A/B" : "Inverti le fotografie A e B"}
+              aria-label={solo ? t("showOther") : t("swapAB")}
+              title={solo ? t("switchAB") : t("swapAB")}
               className="inline-flex h-9 items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-white/75 transition hover:bg-white/10 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowDownUp className="h-3.5 w-3.5" />
-              Inverti
+              {t("swap")}
             </button>
           )}
           <button
             type="button"
             onClick={() => toggleSync(!synced)}
             aria-pressed={synced}
-            aria-label={synced ? "SYNC attivo: disattiva la sincronizzazione" : "SYNC disattivato: attiva la sincronizzazione"}
-            title="Sincronizza zoom e spostamento"
+            aria-label={synced ? t("syncActive") : t("syncInactive")}
+            title={t("syncTitle")}
             className={`h-9 rounded-full px-2.5 font-mono text-[10px] uppercase tracking-[0.16em] transition active:scale-95 ${
               synced ? "bg-primary/15 text-primary" : "text-white/45 hover:bg-white/10"
             }`}
